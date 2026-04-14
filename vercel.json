@@ -1,0 +1,12 @@
+{
+  "routes": [
+    {
+      "src": "/unmute-hyderabad-nomination.html",
+      "dest": "/unmute-hyderabad-nomination.html"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
+    }
+  ]
+}

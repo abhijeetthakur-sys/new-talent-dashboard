@@ -11490,9 +11490,32 @@ function RsvpOverviewPanel({ rsvpData, students, data, onUpdate, openStudentForm
     try { localStorage.setItem(RESOLVED_KEY, JSON.stringify(upd)); } catch {}
   }
 
-  // Build deduplicated unverified list: one entry per unique name, listing all sessions
-  const unverifiedMap = {};
+  const [overviewMonth, setOverviewMonth] = useState("");
+
+  // Group rsvpData by month
+  function getMonthKey(dateStr) {
+    if (!dateStr) return "Unknown";
+    const clean = dateStr.split(",")[0].trim();
+    const d = new Date(clean);
+    if (isNaN(d)) return "Unknown";
+    return d.toLocaleDateString("en-IN", { month:"long", year:"numeric" });
+  }
+  const ovMonthMap = {};
   rsvpData.forEach(s => {
+    const mk = getMonthKey(s.date);
+    if (!ovMonthMap[mk]) ovMonthMap[mk] = [];
+    ovMonthMap[mk].push(s);
+  });
+  const ovSortedMonths = Object.keys(ovMonthMap).sort((a,b) => {
+    const da = new Date(ovMonthMap[a][0]?.date?.split(",")[0]);
+    const db = new Date(ovMonthMap[b][0]?.date?.split(",")[0]);
+    return db - da;
+  });
+  const activeOvMonth = overviewMonth && ovMonthMap[overviewMonth] ? overviewMonth : ovSortedMonths[0] || "";
+  const filteredRsvpData = ovMonthMap[activeOvMonth] || rsvpData;
+  const filteredRsvpData2 = filteredRsvpData;
+  const unverifiedMap = {};
+  filteredRsvpData2.forEach(s => {
     s.rsvps.forEach(r => {
       const rKey = (r.name||"").toLowerCase().trim();
       if (!isRsvpVerified(r.name, students) && !resolvedRsvps[r.name] && !aliases[rKey]) {
@@ -11510,11 +11533,24 @@ function RsvpOverviewPanel({ rsvpData, students, data, onUpdate, openStudentForm
 
   return (
     <div style={{ marginBottom:18 }}>
-      <div style={{ fontSize:11, fontWeight:700, color:"#065F46", textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:10 }}>📋 RSVP Overview — Expected Turnout</div>
+      <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:10, flexWrap:"wrap" }}>
+        <div style={{ fontSize:11, fontWeight:700, color:"#065F46", textTransform:"uppercase", letterSpacing:"0.07em" }}>📋 RSVP Overview — Expected Turnout</div>
+        {/* Month tabs */}
+        {ovSortedMonths.length > 1 && ovSortedMonths.map(mk => (
+          <button key={mk} onClick={()=>setOverviewMonth(mk)}
+            style={{ padding:"3px 12px", borderRadius:99, fontSize:11, fontWeight:600,
+              cursor:"pointer", fontFamily:"inherit", border:"1px solid",
+              background: activeOvMonth===mk ? "#065F46" : "#F9FAFB",
+              color: activeOvMonth===mk ? "#FFF" : "#6B7280",
+              borderColor: activeOvMonth===mk ? "#065F46" : "#E5E7EB" }}>
+            {mk} <span style={{ opacity:0.6 }}>({ovMonthMap[mk].length})</span>
+          </button>
+        ))}
+      </div>
 
       {/* Session cards */}
       <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))", gap:10, marginBottom: allUnverified.length>0 ? 12 : 0 }}>
-        {rsvpData.map((s,si)=>{
+        {filteredRsvpData2.map((s,si)=>{
           const unverifiedCount = s.rsvps.filter(r=>!isRsvpVerified(r.name,students)&&!resolvedRsvps[r.name]).length;
           const verifiedCount = s.rsvps.length - unverifiedCount;
           return (

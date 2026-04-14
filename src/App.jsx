@@ -15440,6 +15440,7 @@ export default function App() {
         "Social Media for Musicians & Artists": "20 Mar 2026",
         "The Carnatic Grooming Series": "25 Mar 2026",
         "The Nuances of Western Vocals": "30 Mar 2026",
+        "Song Performance Lab": "21 Apr 2026",
       };
       const sessionMap = {};
       dedupedRows.forEach(r => {

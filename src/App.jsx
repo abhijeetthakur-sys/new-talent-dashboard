@@ -1356,8 +1356,8 @@ function ATDPSection({ data, canEdit, canMarkAtt, onUpdate, period, anthropicKey
         sessions.forEach(ns => {
           const idx = merged.findIndex(e => e.name === ns.name && e.date === ns.date);
           if (idx >= 0) {
-            const combined = [...merged[idx].rsvps];
-            ns.rsvps.forEach(nr => {
+            const combined = [...(merged[idx].rsvps||[])];
+            (ns.rsvps||[]).forEach(nr => {
               if (!combined.some(r => r.email === nr.email || (r.phone && r.phone === nr.phone))) combined.push(nr);
             });
             merged[idx] = { ...merged[idx], rsvps: combined, lastUpdated: new Date().toISOString() };
@@ -1649,7 +1649,7 @@ function PlanningPipelineBar({ stage }) {
   );
 }
 
-function UnmutePlanningSection({ data, canEdit, onUpdate, atdpStudents }) {
+function UnmutePlanningSection({ data, canEdit, onUpdate, atdpStudents, onCloudSave, onCloudLoad, gdriveStatus, accessToken, onSignIn }) {
   const planning = data.planning || [];
   const [activeIdx, setActiveIdx] = useState(0);
   const [modal, setModal] = useState(null);
@@ -1717,15 +1717,92 @@ function UnmutePlanningSection({ data, canEdit, onUpdate, atdpStudents }) {
   const candidatesByStatus = (status) => (activePlan?.candidates||[]).filter(c=>c.status===status);
   const confirmedCandidates = (activePlan?.candidates||[]).filter(c=>c.status==="confirmed");
 
+  // ── Import/Export helpers ──
+  const importRef = useRef(null);
+
+  function exportPlanning() {
+    const exportData = { planning: data.planning || [], exportedAt: new Date().toISOString(), version: 1 };
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `unmute-planning-${new Date().toISOString().slice(0,10)}.json`;
+    a.click(); URL.revokeObjectURL(url);
+  }
+
+  function importPlanning(e) {
+    const file = e.target.files?.[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const parsed = JSON.parse(ev.target.result);
+        const incoming = parsed.planning || (Array.isArray(parsed) ? parsed : null);
+        if (!incoming) { alert("Invalid file — no planning data found."); return; }
+        // Merge: keep existing editions not in import, add/replace by id
+        const existing = data.planning || [];
+        const merged = [...existing];
+        incoming.forEach(inc => {
+          const idx = merged.findIndex(e => e.id === inc.id);
+          if (idx >= 0) merged[idx] = { ...merged[idx], ...inc };
+          else merged.push(inc);
+        });
+        onUpdate({ ...data, planning: merged });
+        alert(`✅ Imported ${incoming.length} edition(s). ${incoming.length > existing.length ? `${incoming.length - existing.length} new added.` : "Existing editions updated."}`);
+      } catch { alert("Could not parse file. Make sure it's a valid unMute planning JSON."); }
+    };
+    reader.readAsText(file);
+    e.target.value = "";
+  }
+
+  const cloudSynced = gdriveStatus === "synced";
+  const cloudSyncing = gdriveStatus === "syncing" || gdriveStatus === "auto-loading" || gdriveStatus === "signing-in";
+
   return (
     <div>
       {/* Header */}
-      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:22, paddingBottom:18, borderBottom:"1px solid #E5E7EB" }}>
-        <div>
-          <div style={{ fontSize:17, fontWeight:800, color:"#1A1A1A" }}>🗓️ unMute Edition Planner</div>
-          <div style={{ fontSize:12, color:"#6B7280", marginTop:2 }}>Plan upcoming editions from scratch to showtime</div>
+      <div style={{ marginBottom:16, paddingBottom:16, borderBottom:"1px solid #E5E7EB" }}>
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10 }}>
+          <div>
+            <div style={{ fontSize:17, fontWeight:800, color:"#1A1A1A" }}>🗓️ unMute Edition Planner</div>
+            <div style={{ fontSize:12, color:"#6B7280", marginTop:2 }}>Plan upcoming editions from scratch to showtime</div>
+          </div>
+          {canEdit && <button onClick={()=>setModal({type:"newEdition",form:{city:"",tentativeDate:"",venue:"",budgetNote:"",notes:""}})} style={{ background:"linear-gradient(135deg,#7C3AED,#5B21B6)", border:"none", borderRadius:9, color:"#fff", padding:"9px 18px", fontSize:13, fontWeight:800, cursor:"pointer", fontFamily:"inherit" }}>+ New Edition</button>}
         </div>
-        {canEdit && <button onClick={()=>setModal({type:"newEdition",form:{city:"",tentativeDate:"",venue:"",budgetNote:"",notes:""}})} style={{ background:"linear-gradient(135deg,#7C3AED,#5B21B6)", border:"none", borderRadius:9, color:"#fff", padding:"9px 18px", fontSize:13, fontWeight:800, cursor:"pointer", fontFamily:"inherit" }}>+ New Edition</button>}
+
+        {/* Sync row */}
+        <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
+          {/* JSON Export */}
+          <button onClick={exportPlanning} style={{ display:"flex", alignItems:"center", gap:5, background:"#F9FAFB", border:"1px solid #E5E7EB", borderRadius:7, color:"#374151", padding:"5px 11px", fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>
+            ⬇ Export JSON
+          </button>
+
+          {/* JSON Import */}
+          <input ref={importRef} type="file" accept=".json" style={{ display:"none" }} onChange={importPlanning} />
+          <button onClick={()=>importRef.current?.click()} style={{ display:"flex", alignItems:"center", gap:5, background:"#F9FAFB", border:"1px solid #E5E7EB", borderRadius:7, color:"#374151", padding:"5px 11px", fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>
+            ⬆ Import JSON
+          </button>
+
+          <div style={{ width:1, height:16, background:"#E5E7EB", margin:"0 2px" }} />
+
+          {/* Cloud sync */}
+          {!accessToken ? (
+            <button onClick={onSignIn} style={{ display:"flex", alignItems:"center", gap:5, background:"rgba(37,99,235,0.07)", border:"1px solid rgba(37,99,235,0.2)", borderRadius:7, color:"#1D4ED8", padding:"5px 11px", fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>
+              ☁ Connect Google Drive
+            </button>
+          ) : (
+            <>
+              <button onClick={onCloudLoad} disabled={cloudSyncing} style={{ display:"flex", alignItems:"center", gap:5, background:"rgba(30,64,175,0.07)", border:"1px solid rgba(30,64,175,0.2)", borderRadius:7, color:"#1E40AF", padding:"5px 11px", fontSize:11, fontWeight:700, cursor:cloudSyncing?"wait":"pointer", fontFamily:"inherit", opacity:cloudSyncing?0.6:1 }}>
+                ⬇ Load from Drive
+              </button>
+              <button onClick={onCloudSave} disabled={cloudSyncing} style={{ display:"flex", alignItems:"center", gap:5, background:"rgba(4,120,87,0.07)", border:"1px solid rgba(4,120,87,0.2)", borderRadius:7, color:"#065F46", padding:"5px 11px", fontSize:11, fontWeight:700, cursor:cloudSyncing?"wait":"pointer", fontFamily:"inherit", opacity:cloudSyncing?0.6:1 }}>
+                {cloudSyncing ? "⏳ Syncing..." : cloudSynced ? "☁ Saved ✓" : "☁ Save to Drive"}
+              </button>
+            </>
+          )}
+
+          <div style={{ fontSize:10, color:"#9CA3AF", marginLeft:4 }}>
+            {accessToken ? (cloudSynced ? "All devices in sync" : "Save to sync across devices") : "Connect Drive to sync across devices"}
+          </div>
+        </div>
       </div>
 
       {/* Edition tabs with drag reorder */}
@@ -2395,7 +2472,7 @@ function UnmuteEditionStats({ performers }) {
   );
 }
 
-function UnmuteSection({ data, canEdit, onUpdate, period, ytApiKey }) {
+function UnmuteSection({ data, canEdit, onUpdate, period, ytApiKey, onCloudSave, onCloudLoad, gdriveStatus, accessToken, onSignIn }) {
   const [ytSearchFor, setYtSearchFor] = useState(null);
   const [activeIdx, setActiveIdx] = useState(0);
   const { ask:confirmDelete, ConfirmModal:DeleteConfirmModal } = useConfirmDelete();
@@ -2435,7 +2512,7 @@ function UnmuteSection({ data, canEdit, onUpdate, period, ytApiKey }) {
         action={canEdit && <Btn onClick={()=>open("edition",{city:"",date:"",venue:"",status:"planned",notes:""})}>+ Add Edition</Btn>}
       />
       <SubTabs tabs={["editions","planning"]} active={mainTab} onChange={setMainTab} accent="#C2410C" />
-      {mainTab==="planning" && <UnmutePlanningSection data={data} canEdit={canEdit} onUpdate={onUpdate} atdpStudents={[]} />}
+      {mainTab==="planning" && <UnmutePlanningSection data={data} canEdit={canEdit} onUpdate={onUpdate} atdpStudents={[]} onCloudSave={onCloudSave} onCloudLoad={onCloudLoad} gdriveStatus={gdriveStatus} accessToken={accessToken} onSignIn={onSignIn} />}
       {mainTab==="editions" && <div>
 
       <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:12, marginBottom:22 }}>
@@ -16392,7 +16469,7 @@ export default function App() {
           {section==="calendar"  && <ContentCalendar data={data} onUpdate={v=>setData(v)} />}
           {section==="chat"      && <ChatSection data={data} anthropicKey={anthropicKey} onUpdate={nd=>{ const merged={...data,...nd}; setData(merged); try{localStorage.setItem("artium-cms-v4",JSON.stringify(merged));}catch{} }} />}
           {section==="atdp"      && <ErrorBoundary><ATDPSection data={data.atdp} canEdit={canEdit} canMarkAtt={canMarkAtt} canSyncRsvp={canSyncRsvp} onUpdate={v=>updateSection("atdp",v)} period={period} anthropicKey={anthropicKey} isMobile={isMobile} fullData={data} onMarkAttendance={()=>setShowMobileAtt(true)} /></ErrorBoundary>}
-          {section==="unmute"    && <UnmuteSection data={data.unmute} canEdit={canEditUnmute} onUpdate={v=>updateSection("unmute",v)} period={period} ytApiKey={ytApiKey} />}
+          {section==="unmute"    && <UnmuteSection data={data.unmute} canEdit={canEditUnmute} onUpdate={v=>updateSection("unmute",v)} period={period} ytApiKey={ytApiKey} onCloudSave={handleDriveSave} onCloudLoad={handleDriveLoad} gdriveStatus={gdriveStatus} accessToken={accessToken} onSignIn={()=>signIn(async (token)=>{ await handleDriveLoadWithToken(token); })} />}
           {section==="originals" && <ErrorBoundary><OriginalsSection data={data.originals} canEdit={canEditOriginals} onUpdate={v=>updateSection("originals",v)} period={period} ytApiKey={ytApiKey} airtableConfig={airtableConfig} anthropicKey={anthropicKey} /></ErrorBoundary>}
           {section==="analysis"  && <AnalysisSection data={data} period={period} anthropicKey={anthropicKey} unmuteCadence={unmuteCadence} />}
           {section==="deadlines" && <DeadlinesSection canEdit={canEdit} anthropicKey={anthropicKey} />}

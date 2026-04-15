@@ -11916,7 +11916,7 @@ function RSVPImporter({ onImport, onClose }) {
             const dateAndTimeCombined = isNextDate && /\d{1,2}:\d{2}/.test(nextPart);
             const sessionDate = isNextDate ? nextPart.split(",")[0].trim() : "";
             const sessionTime = dateAndTimeCombined ? nextPart.split(",").slice(1).join(",").trim() : (parts[i+2]&&/\d{1,2}:\d{2}/.test(parts[i+2]) ? parts[i+2] : "");
-            if (!sessionMap[sessionName]) sessionMap[sessionName] = { name:sessionName, date:sessionDate, time:sessionTime, rsvps:[] };
+            const sessionKey = `${sessionName}||${sessionDate}`; if (!sessionMap[sessionKey]) sessionMap[sessionKey] = { name:sessionName, date:sessionDate, time:sessionTime, rsvps:[] };
             sessionMap[sessionName].rsvps.push({ name, phone, email });
             i += isNextDate ? (dateAndTimeCombined ? 2 : 3) : 1;
           } else { i++; }

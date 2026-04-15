@@ -1656,6 +1656,7 @@ function UnmutePlanningSection({ data, canEdit, onUpdate, atdpStudents, onCloudS
   const [activeTab, setActiveTab] = useState("candidates");
   const { ask:confirmDelete, ConfirmModal:DeleteConfirmModal } = useConfirmDelete();
   const [dragIdx, setDragIdx] = useState(null);
+  const importRef = useRef(null);
 
   function moveEdition(fromIdx, toIdx) {
     if (toIdx < 0 || toIdx >= planning.length) return;
@@ -1718,7 +1719,6 @@ function UnmutePlanningSection({ data, canEdit, onUpdate, atdpStudents, onCloudS
   const confirmedCandidates = (activePlan?.candidates||[]).filter(c=>c.status==="confirmed");
 
   // ── Import/Export helpers ──
-  const importRef = useRef(null);
 
   function exportPlanning() {
     const exportData = { planning: data.planning || [], exportedAt: new Date().toISOString(), version: 1 };

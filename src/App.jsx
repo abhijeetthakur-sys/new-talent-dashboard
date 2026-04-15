@@ -1769,16 +1769,15 @@ function UnmutePlanningSection({ data, canEdit, onUpdate, atdpStudents, onCloudS
         </div>
 
         {/* Sync row */}
-        <div style={{ marginTop:10, display:"flex", alignItems:"center", gap:8, flexWrap:"wrap", padding:"8px 0" }}>
+        <div style={{ marginTop:12, borderTop:"1px solid #F3F4F6", paddingTop:12 }}>
           <input ref={importRef} type="file" accept=".json" style={{ display:"none" }} onChange={importPlanning} />
-          <button onClick={exportPlanning} style={{ background:"#F9FAFB", border:"1px solid #E5E7EB", borderRadius:7, color:"#374151", padding:"5px 11px", fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>⬇ Export JSON</button>
-          <button onClick={()=>importRef.current?.click()} style={{ background:"#F9FAFB", border:"1px solid #E5E7EB", borderRadius:7, color:"#374151", padding:"5px 11px", fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>⬆ Import JSON</button>
-          <span style={{ color:"#E5E7EB" }}>|</span>
+          <button onClick={exportPlanning} style={{ marginRight:8, background:"#F3F4F6", border:"1px solid #E5E7EB", borderRadius:7, color:"#374151", padding:"5px 11px", fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>⬇ Export JSON</button>
+          <button onClick={()=>importRef.current?.click()} style={{ marginRight:16, background:"#F3F4F6", border:"1px solid #E5E7EB", borderRadius:7, color:"#374151", padding:"5px 11px", fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>⬆ Import JSON</button>
           {!accessToken
-            ? <button onClick={onSignIn} style={{ background:"rgba(37,99,235,0.07)", border:"1px solid rgba(37,99,235,0.2)", borderRadius:7, color:"#1D4ED8", padding:"5px 11px", fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>☁ Connect Google Drive</button>
+            ? <button onClick={onSignIn} style={{ marginRight:8, background:"rgba(37,99,235,0.07)", border:"1px solid rgba(37,99,235,0.2)", borderRadius:7, color:"#1D4ED8", padding:"5px 11px", fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>☁ Connect Google Drive</button>
             : <>
-                <button onClick={onCloudLoad} disabled={cloudSyncing} style={{ background:"rgba(30,64,175,0.07)", border:"1px solid rgba(30,64,175,0.2)", borderRadius:7, color:"#1E40AF", padding:"5px 11px", fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"inherit", opacity:cloudSyncing?0.6:1 }}>⬇ Load from Drive</button>
-                <button onClick={onCloudSave} disabled={cloudSyncing} style={{ background:"rgba(4,120,87,0.07)", border:"1px solid rgba(4,120,87,0.2)", borderRadius:7, color:"#065F46", padding:"5px 11px", fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"inherit", opacity:cloudSyncing?0.6:1 }}>{cloudSyncing?"⏳ Syncing...":cloudSynced?"☁ Saved ✓":"☁ Save to Drive"}</button>
+                <button onClick={onCloudLoad} disabled={cloudSyncing} style={{ marginRight:8, background:"rgba(30,64,175,0.07)", border:"1px solid rgba(30,64,175,0.2)", borderRadius:7, color:"#1E40AF", padding:"5px 11px", fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>⬇ Load from Drive</button>
+                <button onClick={onCloudSave} disabled={cloudSyncing} style={{ marginRight:8, background:"rgba(4,120,87,0.07)", border:"1px solid rgba(4,120,87,0.2)", borderRadius:7, color:"#065F46", padding:"5px 11px", fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>{cloudSyncing?"⏳ Syncing...":cloudSynced?"☁ Saved ✓":"☁ Save to Drive"}</button>
               </>
           }
           <span style={{ fontSize:10, color:"#9CA3AF" }}>{accessToken?(cloudSynced?"All devices in sync":"Save to sync across devices"):"Connect Drive to sync across devices"}</span>

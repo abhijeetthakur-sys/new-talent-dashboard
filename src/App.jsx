@@ -15439,8 +15439,7 @@ export default function App() {
       const SESSION_DATES = {
         "Social Media for Musicians & Artists": "20 Mar 2026",
         "The Carnatic Grooming Series": "25 Mar 2026",
-        "The Nuances of Western Vocals": "30 Mar 2026",
-        "Song Performance Lab": "21 Apr 2026",
+        // NOTE: Don't add sessions here that recur monthly — the date comes from the string
       };
       const sessionMap = {};
       dedupedRows.forEach(r => {
@@ -15466,8 +15465,9 @@ export default function App() {
               const dateAndTimeCombined = isNextDate && /\d{1,2}:\d{2}/.test(nextPart);
               const sessionDate = isNextDate ? nextPart.split(",")[0].trim() : (SESSION_DATES[sessionName]||"");
               const sessionTime = dateAndTimeCombined ? nextPart.split(",").slice(1).join(",").trim() : (parts[i+2]&&/\d{1,2}:\d{2}/.test(parts[i+2]) ? parts[i+2] : "");
-              if (!sessionMap[sessionName]) sessionMap[sessionName] = { name:sessionName, date:sessionDate, time:sessionTime, rsvps:[] };
-              sessionMap[sessionName].rsvps.push({ name, phone, email, stream });
+              const sessionKey = `${sessionName}||${sessionDate}`;
+              if (!sessionMap[sessionKey]) sessionMap[sessionKey] = { name:sessionName, date:sessionDate, time:sessionTime, rsvps:[] };
+              sessionMap[sessionKey].rsvps.push({ name, phone, email, stream });
               i += isNextDate ? (dateAndTimeCombined ? 2 : 3) : 1;
             } else { i++; }
           }

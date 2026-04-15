@@ -15494,7 +15494,7 @@ export default function App() {
       // Auto-link RSVPs to grooming lane sessions by matching lane name + date
       setData(prev => {
         // Update groomingLanes — write rsvpCount onto matching sessions
-        const updatedLanes = (prev.groomingLanes || []).map(lane => {
+        const updatedLanes = (prev.atdp?.groomingLanes || prev.groomingLanes || []).map(lane => {
           const lnLower = (lane.name||"").toLowerCase().trim();
 
           // Find all rsvp sessions that belong to this lane
@@ -15531,7 +15531,7 @@ export default function App() {
           return { ...lane, sessions: updatedSessions };
         });
 
-        const nd = { ...prev, rsvpHistory: newHistory, rsvpSessions: newHistory, groomingLanes: updatedLanes };
+        const nd = { ...prev, atdp: { ...prev.atdp, rsvpHistory: newHistory, rsvpSessions: newHistory, groomingLanes: updatedLanes } };
         try { localStorage.setItem("artium-cms-v4", JSON.stringify(nd)); } catch {}
         return nd;
       });

@@ -15487,7 +15487,8 @@ export default function App() {
         .map(s => ({ ...s, lastUpdated: new Date().toISOString() }));
       const totalRsvps = newHistory.reduce((a,s)=>a+s.rsvps.length, 0);
       const dupeCount = csvRows.length - dedupedRows.length;
-      console.log("RSVP sync — sessions:", newHistory.map(s=>s.name+"("+s.rsvps.length+")").join(", "), "dupes removed:", dupeCount);
+      console.log("RSVP sync — ALL sessionMap keys:", Object.keys(sessionMap));
+      console.log("RSVP sync — sessions:", newHistory.map(s=>s.name+"("+s.rsvps.length+") date:"+s.date).join(", "), "dupes removed:", dupeCount);
 
       // Auto-link RSVPs to grooming lane sessions by matching lane name + date
       setData(prev => {

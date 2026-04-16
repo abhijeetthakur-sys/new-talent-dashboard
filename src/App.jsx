@@ -1769,18 +1769,39 @@ function UnmutePlanningSection({ data, canEdit, onUpdate, atdpStudents, onCloudS
         </div>
 
         {/* Sync row */}
-        <div style={{ marginTop:12, borderTop:"1px solid #F3F4F6", paddingTop:12 }}>
+        <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
+          {/* JSON Export */}
+          <button onClick={exportPlanning} style={{ display:"flex", alignItems:"center", gap:5, background:"#F9FAFB", border:"1px solid #E5E7EB", borderRadius:7, color:"#374151", padding:"5px 11px", fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>
+            ⬇ Export JSON
+          </button>
+
+          {/* JSON Import */}
           <input ref={importRef} type="file" accept=".json" style={{ display:"none" }} onChange={importPlanning} />
-          <button onClick={exportPlanning} style={{ marginRight:8, background:"#F3F4F6", border:"1px solid #E5E7EB", borderRadius:7, color:"#374151", padding:"5px 11px", fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>⬇ Export JSON</button>
-          <button onClick={()=>importRef.current?.click()} style={{ marginRight:16, background:"#F3F4F6", border:"1px solid #E5E7EB", borderRadius:7, color:"#374151", padding:"5px 11px", fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>⬆ Import JSON</button>
-          {!accessToken
-            ? <button onClick={onSignIn} style={{ marginRight:8, background:"rgba(37,99,235,0.07)", border:"1px solid rgba(37,99,235,0.2)", borderRadius:7, color:"#1D4ED8", padding:"5px 11px", fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>☁ Connect Google Drive</button>
-            : <>
-                <button onClick={onCloudLoad} disabled={cloudSyncing} style={{ marginRight:8, background:"rgba(30,64,175,0.07)", border:"1px solid rgba(30,64,175,0.2)", borderRadius:7, color:"#1E40AF", padding:"5px 11px", fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>⬇ Load from Drive</button>
-                <button onClick={onCloudSave} disabled={cloudSyncing} style={{ marginRight:8, background:"rgba(4,120,87,0.07)", border:"1px solid rgba(4,120,87,0.2)", borderRadius:7, color:"#065F46", padding:"5px 11px", fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>{cloudSyncing?"⏳ Syncing...":cloudSynced?"☁ Saved ✓":"☁ Save to Drive"}</button>
-              </>
-          }
-          <span style={{ fontSize:10, color:"#9CA3AF" }}>{accessToken?(cloudSynced?"All devices in sync":"Save to sync across devices"):"Connect Drive to sync across devices"}</span>
+          <button onClick={()=>importRef.current?.click()} style={{ display:"flex", alignItems:"center", gap:5, background:"#F9FAFB", border:"1px solid #E5E7EB", borderRadius:7, color:"#374151", padding:"5px 11px", fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>
+            ⬆ Import JSON
+          </button>
+
+          <div style={{ width:1, height:16, background:"#E5E7EB", margin:"0 2px" }} />
+
+          {/* Cloud sync */}
+          {!accessToken ? (
+            <button onClick={onSignIn} style={{ display:"flex", alignItems:"center", gap:5, background:"rgba(37,99,235,0.07)", border:"1px solid rgba(37,99,235,0.2)", borderRadius:7, color:"#1D4ED8", padding:"5px 11px", fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>
+              ☁ Connect Google Drive
+            </button>
+          ) : (
+            <>
+              <button onClick={onCloudLoad} disabled={cloudSyncing} style={{ display:"flex", alignItems:"center", gap:5, background:"rgba(30,64,175,0.07)", border:"1px solid rgba(30,64,175,0.2)", borderRadius:7, color:"#1E40AF", padding:"5px 11px", fontSize:11, fontWeight:700, cursor:cloudSyncing?"wait":"pointer", fontFamily:"inherit", opacity:cloudSyncing?0.6:1 }}>
+                ⬇ Load from Drive
+              </button>
+              <button onClick={onCloudSave} disabled={cloudSyncing} style={{ display:"flex", alignItems:"center", gap:5, background:"rgba(4,120,87,0.07)", border:"1px solid rgba(4,120,87,0.2)", borderRadius:7, color:"#065F46", padding:"5px 11px", fontSize:11, fontWeight:700, cursor:cloudSyncing?"wait":"pointer", fontFamily:"inherit", opacity:cloudSyncing?0.6:1 }}>
+                {cloudSyncing ? "⏳ Syncing..." : cloudSynced ? "☁ Saved ✓" : "☁ Save to Drive"}
+              </button>
+            </>
+          )}
+
+          <div style={{ fontSize:10, color:"#9CA3AF", marginLeft:4 }}>
+            {accessToken ? (cloudSynced ? "All devices in sync" : "Save to sync across devices") : "Connect Drive to sync across devices"}
+          </div>
         </div>
       </div>
 
@@ -11843,14 +11864,28 @@ function isRsvpVerified(rsvpName, students) {
   // Check alias map first
   const aliases = (() => { try { return JSON.parse(localStorage.getItem("artium-name-aliases")||"{}"); } catch { return {}; } })();
   if (aliases[rLower]) return true;
-  const rFirst = rLower.split(" ")[0];
+  const rParts = rLower.split(/\s+/);
+  const rFirst = rParts[0] || "";
+  const rLast = rParts.slice(1).join(" ");
   return students.some(s => {
     const sName = (s.name||"").toLowerCase().trim();
-    const sFirst = sName.split(" ")[0];
-    return sName === rLower ||
-      sName.includes(rLower) ||
-      rLower.includes(sName) ||
-      (rFirst && sFirst && rFirst === sFirst && rFirst.length > 2);
+    const sParts = sName.split(/\s+/);
+    const sFirst = sParts[0] || "";
+    const sLast = sParts.slice(1).join(" ");
+    // Exact full name match
+    if (sName === rLower) return true;
+    // Full name contains — only when both have 2+ parts
+    if (rParts.length >= 2 && sParts.length >= 2) {
+      if (sName.includes(rLower) || rLower.includes(sName)) return true;
+    }
+    // First + last both present and match
+    if (rFirst && rLast && sFirst && sLast) {
+      if ((rFirst === sFirst && rLast === sLast) ||
+          (rFirst === sLast && rLast === sFirst)) return true;
+    }
+    // First name only — require 7+ chars to avoid false positives
+    if (rFirst && sFirst && rFirst === sFirst && rFirst.length >= 7 && !rLast && !sLast) return true;
+    return false;
   });
 }
 

@@ -3314,7 +3314,7 @@ function OriginalsSection({ data, canEdit, onUpdate, period, ytApiKey, airtableC
         <KPI val={scouting.length} label="Scouting Pipeline" sub={`${scouting.filter(s=>s.status==="interested"||s.status==="material sent").length} warm leads`} color="#6D28D9" />
       </div>
 
-      <SubTabs tabs={["Pipeline","Flagship","Devotional","Scouting","Festival Calendar","Teacher Series"]} active={tab} onChange={setTab} accent="#9D174D" />
+      <SubTabs tabs={["Pipeline","Flagship","Teacher Originals","Scouting","Festival Calendar"]} active={tab} onChange={v=>{setTab(v); if(v==="Teacher Originals") setToSubSection("Submissions");}} accent="#9D174D" />
       {tab==="Pipeline" && <OriginalsPlanningModule data={data} canEdit={canEdit} onUpdate={onUpdate} anthropicKey={anthropicKey} />}
 
       {/* ── Flagship ── */}

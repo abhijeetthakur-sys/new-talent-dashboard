@@ -3097,111 +3097,92 @@ function TeacherSeriesTab({ submissions, loading, error, accessToken, onLoad, on
         </div>
       )}
 
-      {/* Table */}
+      {/* Card Grid */}
       {rows.length > 0 && (
-        <div style={{ overflowX:"auto" }}>
-          <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
-            <thead>
-              <tr style={{ borderBottom:"2px solid #E5E7EB" }}>
-                {["Teacher","Track","Language","Type","Submitted","Status","Audio",""].map(h => (
-                  <th key={h} style={{ textAlign:"left", padding:"8px 10px", fontSize:10, fontWeight:700, color:"#6B7280", textTransform:"uppercase", letterSpacing:"0.06em", whiteSpace:"nowrap" }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((s, i) => {
-                const status   = getStatus(s);
-                const stColor  = TS_STAGE_COLORS[status] || "#6B7280";
-                const audioLink= getAudio(s);
-                const type     = getType(s);
-                const isDevotional = type === "Devotional/Spiritual";
-                const breached = isSlaBreached(s);
-                const isExpanded = expandedRow === i;
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(230px,1fr))", gap:16 }}>
+          {rows.map((s, i) => {
+            const status = getStatus(s);
+            const stColor = TS_STAGE_COLORS[status] || "#6B7280";
+            const audioLink = getAudio(s);
+            const type = getType(s);
+            const isDevotional = type === "Devotional/Spiritual";
+            const breached = isSlaBreached(s);
+            const typeColor = isDevotional ? C2.blue : C2.purple;
+            const typeLabel = isDevotional ? "Devotional" : "General";
+            const isExpanded = expandedRow === i;
 
-                return (
-                  <React.Fragment key={i}>
-                    <tr style={{ borderBottom: isExpanded?"none":"1px solid rgba(0,0,0,0.04)", background: breached?"rgba(180,83,9,0.03)":"transparent", cursor:"pointer" }}
-                      onMouseEnter={e=>{ if(!isExpanded) e.currentTarget.style.background="rgba(157,23,77,0.02)"; }}
-                      onMouseLeave={e=>{ if(!isExpanded) e.currentTarget.style.background=breached?"rgba(180,83,9,0.03)":"transparent"; }}
-                      onClick={()=>setExpandedRow(isExpanded?null:i)}>
-                      <td style={{ padding:"10px 10px" }}>
-                        <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-                          {breached && <span title="Past 72h SLA" style={{ fontSize:9, background:"rgba(180,83,9,0.15)", color:"#B45309", borderRadius:4, padding:"1px 5px", fontWeight:700, flexShrink:0 }}>⚠ SLA</span>}
-                          <div>
-                            <div style={{ fontWeight:700, color:"#1A1A1A" }}>{getName(s)}</div>
-                            <div style={{ fontSize:10, color:"#6B7280" }}>{getPhone(s)}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td style={{ padding:"10px 10px" }}>
-                        <div style={{ fontWeight:600, color:"#374151" }}>{getTitle(s)}</div>
-                        <div style={{ fontSize:10, color:"#6B7280" }}>{getGenre(s)}</div>
-                      </td>
-                      <td style={{ padding:"10px 10px", color:"#374151", whiteSpace:"nowrap" }}>{getLang(s)}</td>
-                      <td style={{ padding:"10px 10px" }}>
-                        <span style={{ fontSize:10, background: isDevotional?"rgba(30,64,175,0.1)":"rgba(109,40,217,0.1)",
-                          color: isDevotional?C2.blue:C2.purple, borderRadius:5, padding:"2px 7px", fontWeight:700, whiteSpace:"nowrap" }}>
-                          {isDevotional ? "Devotional" : "General"}
-                        </span>
-                      </td>
-                      <td style={{ padding:"10px 10px", color:"#6B7280", whiteSpace:"nowrap" }}>{getDate(s)}</td>
-                      <td style={{ padding:"10px 10px" }}>
-                        {canEdit ? (
-                          <select value={status} onClick={e=>e.stopPropagation()}
-                            onChange={e=>{ e.stopPropagation(); onStatusChange(s._rowIndex, e.target.value); }}
-                            style={{ background:`${stColor}12`, border:`1px solid ${stColor}40`, borderRadius:6, color:stColor, padding:"4px 8px", fontSize:11, fontWeight:700, fontFamily:"inherit", outline:"none", cursor:"pointer" }}>
-                            {TS_STAGES.map(st => <option key={st} value={st} style={{ background:"#fff", color:"#1A1A1A" }}>{st}</option>)}
-                          </select>
-                        ) : (
-                          <span style={{ fontSize:11, background:`${stColor}12`, color:stColor, borderRadius:5, padding:"3px 8px", fontWeight:700 }}>{status}</span>
-                        )}
-                      </td>
-                      <td style={{ padding:"10px 10px" }} onClick={e=>e.stopPropagation()}>
-                        {audioLink
-                          ? <a href={audioLink} target="_blank" rel="noreferrer" style={{ fontSize:11, color:C2.teal, fontWeight:700, textDecoration:"none" }}>Listen</a>
-                          : <span style={{ color:"#9CA3AF" }}>—</span>}
-                      </td>
-                      <td style={{ padding:"10px 10px", color:"#9CA3AF", fontSize:11 }}>
-                        {isExpanded ? "▲" : "▼"}
-                      </td>
-                    </tr>
+            return (
+              <div key={i}
+                style={{ background:"rgba(255,255,255,0.75)", border:`1px solid ${breached?"rgba(180,83,9,0.35)":"#E5E7EB"}`, borderRadius:16, overflow:"hidden", display:"flex", flexDirection:"column", transition:"all 0.2s" }}
+                onMouseEnter={e=>{ e.currentTarget.style.transform="translateY(-2px)"; e.currentTarget.style.boxShadow="0 8px 28px rgba(0,0,0,0.1)"; e.currentTarget.style.borderColor=`${stColor}55`; }}
+                onMouseLeave={e=>{ e.currentTarget.style.transform="none"; e.currentTarget.style.boxShadow="none"; e.currentTarget.style.borderColor=breached?"rgba(180,83,9,0.35)":"#E5E7EB"; }}>
 
-                    {/* Expanded detail row */}
-                    {isExpanded && (
-                      <tr style={{ borderBottom:"1px solid rgba(0,0,0,0.04)" }}>
-                        <td colSpan={8} style={{ padding:"0 10px 14px 10px" }}>
-                          <div style={{ background:"rgba(0,0,0,0.02)", borderRadius:10, padding:"14px 16px", display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:12 }}>
-                            <div>
-                              <div style={{ fontSize:10, fontWeight:700, color:"#6B7280", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:4 }}>Contact</div>
-                              <div style={{ fontSize:12, color:"#374151" }}>{getEmail(s) || "—"}</div>
-                              <div style={{ fontSize:12, color:"#374151" }}>{getPhone(s) || "—"}</div>
-                            </div>
-                            <div>
-                              <div style={{ fontSize:10, fontWeight:700, color:"#6B7280", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:4 }}>Credits</div>
-                              <div style={{ fontSize:12, color:"#374151" }}>Composer: {getComposer(s)||"—"}</div>
-                              <div style={{ fontSize:12, color:"#374151" }}>Recording: {getRecType(s)||"—"}</div>
-                            </div>
-                            <div>
-                              <div style={{ fontSize:10, fontWeight:700, color:"#6B7280", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:4 }}>Notes from teacher</div>
-                              <div style={{ fontSize:12, color:"#374151", lineHeight:1.6 }}>{getNotes(s)||getDesc(s)||"—"}</div>
-                            </div>
-                            {isDevotional && canEdit && (
-                              <div style={{ gridColumn:"1/-1", marginTop:4 }}>
-                                <button onClick={()=>onNavigateDevotional && onNavigateDevotional()}
-                                  style={{ background:"rgba(30,64,175,0.1)", border:"1px solid rgba(30,64,175,0.25)", borderRadius:7, color:C2.blue, padding:"6px 14px", fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>
-                                  View in Devotional tab →
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
+                {/* Art placeholder */}
+                <div style={{ position:"relative", aspectRatio:"1/1", background:`linear-gradient(135deg, ${typeColor}10, ${stColor}08)`, display:"flex", alignItems:"center", justifyContent:"center", overflow:"hidden" }}>
+                  <div style={{ fontSize:48, opacity:0.15 }}>♪</div>
+                  <div style={{ position:"absolute", top:10, left:10, display:"flex", gap:5, flexWrap:"wrap" }}>
+                    {breached && <span style={{ fontSize:9, background:"rgba(180,83,9,0.85)", color:"#fff", borderRadius:4, padding:"2px 6px", fontWeight:700 }}>⚠ SLA</span>}
+                    <span style={{ fontSize:9, background:`${typeColor}cc`, color:"#fff", borderRadius:4, padding:"2px 6px", fontWeight:700 }}>{typeLabel}</span>
+                  </div>
+                  <div style={{ position:"absolute", bottom:10, right:10 }}>
+                    <span style={{ fontSize:9, fontWeight:700, padding:"3px 8px", borderRadius:99, background:`${stColor}cc`, color:"#fff" }}>{status}</span>
+                  </div>
+                  {/* Progress bar */}
+                  <div style={{ position:"absolute", bottom:0, left:0, right:0, height:2, background:"rgba(0,0,0,0.08)" }}>
+                    <div style={{ height:"100%", background:stColor, width: status==="Live"?"100%":status==="Release Prep"?"80%":status==="Agreement Pending"?"60%":status==="QC In Progress"?"40%":"15%", transition:"width 0.4s" }} />
+                  </div>
+                </div>
+
+                {/* Card body */}
+                <div style={{ padding:"14px 14px 12px", flex:1, display:"flex", flexDirection:"column", gap:5 }}>
+                  <div style={{ fontSize:14, fontWeight:800, color:"#1A1A1A", lineHeight:1.3, overflow:"hidden", display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical" }}>{getTitle(s)}</div>
+                  <div style={{ fontSize:11, color:"#6B7280" }}>{getName(s)}</div>
+                  <div style={{ fontSize:11, color:"#9CA3AF" }}>{getLang(s)} · {getGenre(s)||"—"}</div>
+                  <div style={{ fontSize:10, color:"#B45309", fontWeight:600 }}>{getDate(s)}</div>
+
+                  {/* Expand toggle */}
+                  <button onClick={()=>setExpandedRow(isExpanded?null:i)}
+                    style={{ background:"none", border:"none", textAlign:"left", color:"#9CA3AF", fontSize:10, cursor:"pointer", fontFamily:"inherit", padding:"2px 0", marginTop:2 }}>
+                    {isExpanded ? "▲ Less" : "▼ Details"}
+                  </button>
+
+                  {/* Expanded details */}
+                  {isExpanded && (
+                    <div style={{ background:"rgba(0,0,0,0.03)", borderRadius:8, padding:"10px 12px", marginTop:4, display:"flex", flexDirection:"column", gap:6 }}>
+                      <div style={{ fontSize:11, color:"#374151" }}><span style={{ color:"#9CA3AF" }}>Email: </span>{getEmail(s)||"—"}</div>
+                      <div style={{ fontSize:11, color:"#374151" }}><span style={{ color:"#9CA3AF" }}>Phone: </span>{getPhone(s)||"—"}</div>
+                      <div style={{ fontSize:11, color:"#374151" }}><span style={{ color:"#9CA3AF" }}>Composer: </span>{getComposer(s)||"—"}</div>
+                      <div style={{ fontSize:11, color:"#374151" }}><span style={{ color:"#9CA3AF" }}>Recording: </span>{getRecType(s)||"—"}</div>
+                      {(getNotes(s)||getDesc(s)) && <div style={{ fontSize:11, color:"#374151", lineHeight:1.55 }}><span style={{ color:"#9CA3AF" }}>Notes: </span>{getNotes(s)||getDesc(s)}</div>}
+                      {isDevotional && canEdit && (
+                        <button onClick={()=>onNavigateDevotional&&onNavigateDevotional()}
+                          style={{ marginTop:4, background:"rgba(30,64,175,0.08)", border:"1px solid rgba(30,64,175,0.2)", borderRadius:6, color:C2.blue, padding:"5px 10px", fontSize:10, fontWeight:700, cursor:"pointer", fontFamily:"inherit", textAlign:"left" }}>
+                          View in Devotional tab →
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Action row */}
+                  <div style={{ display:"flex", gap:6, marginTop:"auto", paddingTop:8 }}>
+                    {audioLink && (
+                      <a href={audioLink} target="_blank" rel="noreferrer"
+                        style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(4,120,87,0.1)", border:"1px solid rgba(4,120,87,0.25)", borderRadius:7, color:C2.teal, fontSize:10, fontWeight:700, padding:"6px 8px", textDecoration:"none" }}>
+                        Listen
+                      </a>
                     )}
-                  </React.Fragment>
-                );
-              })}
-            </tbody>
-          </table>
+                    {canEdit && (
+                      <select value={status}
+                        onChange={e=>onStatusChange(s._rowIndex, e.target.value)}
+                        style={{ flex:2, background:`${stColor}10`, border:`1px solid ${stColor}35`, borderRadius:7, color:stColor, padding:"5px 7px", fontSize:10, fontWeight:700, fontFamily:"inherit", outline:"none", cursor:"pointer" }}>
+                        {TS_STAGES.map(st => <option key={st} value={st} style={{ background:"#fff", color:"#1A1A1A" }}>{st}</option>)}
+                      </select>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

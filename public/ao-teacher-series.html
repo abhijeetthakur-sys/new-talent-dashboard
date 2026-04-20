@@ -291,7 +291,7 @@ body::before {
 .radio-group.inline { flex-direction: row; flex-wrap: wrap; gap: 7px; }
 
 .radio-opt, .check-opt {
-  display: flex; align-items: flex-start; gap: 9px;
+  display: flex; align-items: flex-start; gap: 10px;
   padding: 10px 13px; background: var(--black-3);
   border: 1px solid rgba(245,240,255,0.07); border-radius: 9px;
   cursor: pointer; transition: all 0.15s; font-size: 13px; color: var(--w50); line-height: 1.5;
@@ -300,7 +300,7 @@ body::before {
 .radio-opt:hover, .check-opt:hover { border-color: var(--pink-bd); color: var(--w70); }
 .radio-opt.selected, .check-opt.selected { border-color: var(--pink); background: var(--pink-lo); color: var(--white); }
 .radio-opt input[type="radio"], .check-opt input[type="checkbox"] {
-  width: 14px; height: 14px; accent-color: var(--pink); cursor: pointer; flex-shrink: 0; margin-top: 3px;
+  width: 15px; height: 15px; accent-color: var(--pink); cursor: pointer; flex-shrink: 0; margin-top: 1px; flex-shrink: 0;
 }
 .radio-group.inline .radio-opt { flex: 0 1 auto; padding: 8px 13px; font-size: 12.5px; align-items: center; }
 
@@ -526,7 +526,7 @@ body::before {
           </div>
 
           <div class="field" id="f-description">
-            <label>Song description <span class="req">*</span><span class="hint">50–100 words</span></label>
+            <label>Song description <span class="hint">50–100 words, optional</span></label>
             <textarea name="description" id="descriptionArea" placeholder="Describe the song — its mood, meaning, what inspired it, and what makes it special." rows="5"></textarea>
             <div class="word-count" id="wordCount">0 words</div>
             <div class="error-msg">Please write a description between 50 and 100 words</div>
@@ -832,9 +832,7 @@ function validate(){
   req('f-composer','composer');req('f-solePerformer','solePerformer',true);
   req('f-rightsCheck1','rightsCheck1',false,true);req('f-rightsCheck2','rightsCheck2',false,true);req('f-rightsCheck3','rightsCheck3',false,true);
 
-  const words=descArea.value.trim().split(/\s+/).filter(w=>w.length>0).length;
-  const df=document.getElementById('f-description');
-  if(words<50||words>100){df.classList.add('has-error');ok=false;}else df.classList.remove('has-error');
+  // description is optional — no word count validation
 
   if(getRadio('composition')==='Traditional / public domain')req('f-themeSource','themeSource');
   if(getRadio('solePerformer')==='No')req('f-otherPerformers','otherPerformers');

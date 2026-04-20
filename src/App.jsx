@@ -2851,7 +2851,7 @@ function DevColManager({ cols, onSave, onClose }) {
         </div>
         <div style={{ padding:"18px 24px", maxHeight:"60vh", overflowY:"auto" }}>
           <div style={{ fontSize:10, fontWeight:700, color:"#9CA3AF", textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:8 }}>Built-in columns (always visible)</div>
-          {["Teacher","Phone","Religion","Language","Type","Scratch","Final Track","Prod","Release Date","Links","Notes"].map(c=>(
+          {["Teacher","Phone","Category","Language","Genre","Scratch","Final Track","Prod","Release Date","Links","Notes"].map(c=>(
             <div key={c} style={{ display:"flex", alignItems:"center", gap:8, padding:"6px 10px", background:"#F9FAFB", borderRadius:7, marginBottom:4 }}>
               <span style={{ fontSize:12, color:"#6B7280", flex:1 }}>{c}</span>
               <span style={{ fontSize:10, color:"#D1D5DB" }}>built-in</span>
@@ -2896,7 +2896,7 @@ function DevColManager({ cols, onSave, onClose }) {
 // ─── TEACHER SERIES TAB ──────────────────────────────────────────────────────
 function TeacherSeriesTab({ submissions, loading, error, accessToken, onLoad, onStatusChange,
   tsQ, setTsQ, tsSortField, setTsSortField, tsSortDir, setTsSortDir,
-  TS_STAGES, TS_STAGE_COLORS, TS_FORM_URL, TS_SHEET_URL, canEdit, onNavigateDevotional }) {
+  TS_STAGES, TS_STAGE_COLORS, TS_FORM_URL, TS_SHEET_URL, canEdit, onNavigateDevotional, hideHeader=false }) {
 
   const C2 = { pink:"#9D174D", teal:"#047857", gold:"#B45309", blue:"#1E40AF", purple:"#6D28D9", green:"#065F46", red:"#DC2626" };
   const [tsTypeFilter, setTsTypeFilter] = useState("all");
@@ -2965,7 +2965,8 @@ function TeacherSeriesTab({ submissions, loading, error, accessToken, onLoad, on
 
   return (
     <div>
-      {/* Header */}
+      {/* Header — hidden when embedded in Teacher Originals */}
+      {!hideHeader && (
       <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:18, flexWrap:"wrap", gap:10 }}>
         <div>
           <div style={{ fontSize:15, fontWeight:800, color:"#1A1A1A" }}>Artium Originals — Teacher Series</div>
@@ -2986,6 +2987,7 @@ function TeacherSeriesTab({ submissions, loading, error, accessToken, onLoad, on
           </button>
         </div>
       </div>
+      )}
 
       {/* SLA alert */}
       {slaBreaches > 0 && (
@@ -2994,8 +2996,8 @@ function TeacherSeriesTab({ submissions, loading, error, accessToken, onLoad, on
         </div>
       )}
 
-      {/* Stats strip — 2 rows */}
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:10, marginBottom:10 }}>
+      {/* Stats strip — hidden when embedded */}
+      {!hideHeader && <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:10, marginBottom:10 }}>
         {[
           ["Total Submissions", total,    "#1A1A1A"],
           ["In Pipeline",       approved, C2.teal],
@@ -3007,8 +3009,8 @@ function TeacherSeriesTab({ submissions, loading, error, accessToken, onLoad, on
             <div style={{ fontSize:10, color:"#6B7280", marginTop:2 }}>{label}</div>
           </div>
         ))}
-      </div>
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:10, marginBottom:18 }}>
+      </div>}
+      {!hideHeader && <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:10, marginBottom:18 }}>
         {[
           ["Devotional", devotionalCount, C2.blue],
           ["General",    generalCount,    C2.purple],
@@ -3020,7 +3022,7 @@ function TeacherSeriesTab({ submissions, loading, error, accessToken, onLoad, on
             <div style={{ fontSize:10, color:"#6B7280", marginTop:2 }}>{label}</div>
           </div>
         ))}
-      </div>
+      </div>}
 
       {/* Pipeline */}
       {total > 0 && (
@@ -3301,7 +3303,7 @@ function OriginalsSection({ data, canEdit, onUpdate, period, ytApiKey, airtableC
           <Btn onClick={()=>open(tab==="Flagship"?"flagship":"devotional",
             tab==="Flagship"
               ? {title:"",artist:"",artistType:"student",genre:"Hindi Pop",composer:"",lyricist:"",studio:"",producer:"Akshay",status:"planned",releaseDate:"",distributor:"GMJ",distributorLink:"",stages:{composition:"pending",recording:"pending",production:"pending",mixMaster:"pending",metadata:"pending",distribution:"pending"},notes:"",analytics:null}
-              : {name:"",phone:"",religion:"",deity:"",type:"",scratchStatus:"not yet",scratchDate:"",finalStatus:"not yet",finalDate:"",prodStatus:"pending",releaseDate:"",finalTrackLink:"",ytLink:"",dspLink:"",albumArtStatus:"",notes:""}
+              : {name:"",phone:"",religion:"",deity:"",type:"",genre:"",trackCategory:"",language:"",scratchStatus:"not yet",scratchDate:"",finalStatus:"not yet",finalDate:"",prodStatus:"pending",releaseDate:"",finalTrackLink:"",ytLink:"",dspLink:"",albumArtStatus:"",notes:""}
           )}>+ Add {tab==="Flagship"?"Original":"Teacher Track"}</Btn>
         )}
       />
@@ -3816,7 +3818,7 @@ function OriginalsSection({ data, canEdit, onUpdate, period, ytApiKey, airtableC
               {/* Add teacher track button */}
               {canEdit && (
                 <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:10 }}>
-                  <Btn onClick={()=>open("devotional",{name:"",phone:"",religion:"",deity:"",type:"",scratchStatus:"not yet",scratchDate:"",finalStatus:"not yet",finalDate:"",prodStatus:"pending",releaseDate:"",finalTrackLink:"",ytLink:"",dspLink:"",albumArtStatus:"",notes:""})}>
+                  <Btn onClick={()=>open("devotional",{name:"",phone:"",religion:"",deity:"",type:"",genre:"",trackCategory:"",language:"",scratchStatus:"not yet",scratchDate:"",finalStatus:"not yet",finalDate:"",prodStatus:"pending",releaseDate:"",finalTrackLink:"",ytLink:"",dspLink:"",albumArtStatus:"",notes:""})}>
                     + Add Teacher Track
                   </Btn>
                 </div>
@@ -3855,8 +3857,8 @@ function OriginalsSection({ data, canEdit, onUpdate, period, ytApiKey, airtableC
                               <div style={{ fontSize:13, fontWeight:700, color:"#1A1A1A", flex:1, overflow:"hidden", display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical" }}>{d.name}</div>
                               <Chip status={d.prodStatus==="in progress"?"in progress":d.releaseDate?"done":"pending"} label={d.releaseDate?"Released":d.prodStatus==="in progress"?"In Prod":"Pending"} />
                             </div>
-                            <div style={{ fontSize:11, color:"#6B7280" }}>{d.religion||"—"}{d.deity?` · ${d.deity}`:""}</div>
-                            <div style={{ fontSize:11, color:"#6B7280" }}>{d.language||""}{d.type?` · ${d.type}`:""}</div>
+                            <div style={{ fontSize:11, color:"#6B7280" }}>{d.trackCategory||d.religion||"—"}{d.deity?` · ${d.deity}`:""}</div>
+                            <div style={{ fontSize:11, color:"#6B7280" }}>{d.language||""}{d.genre||d.type?` · ${d.genre||d.type}`:""}</div>
                             <div style={{ display:"flex", gap:5, marginTop:"auto", paddingTop:8 }}>
                               {d.finalTrackLink&&<a href={d.finalTrackLink} target="_blank" rel="noreferrer" style={{ fontSize:10, color:C.teal, fontWeight:700, textDecoration:"none" }}>Track</a>}
                               {d.ytLink&&<a href={d.ytLink} target="_blank" rel="noreferrer" style={{ fontSize:10, color:"#DC2626", fontWeight:700, textDecoration:"none" }}>YT</a>}
@@ -3874,7 +3876,7 @@ function OriginalsSection({ data, canEdit, onUpdate, period, ytApiKey, airtableC
                     <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
                       <thead>
                         <tr style={{ borderBottom:"1px solid #E5E7EB" }}>
-                          {["Teacher","Phone","Religion","Language","Type","Scratch","Final Track","Prod","Release Date","Links","Notes",...devCustomCols.map(c=>c.label),""].map(h=>(
+                          {["Teacher","Phone","Category","Language","Genre","Scratch","Final Track","Prod","Release Date","Links","Notes",...devCustomCols.map(c=>c.label),""].map(h=>(
                             <th key={h} style={{ textAlign:"left", padding:"7px 10px", fontSize:10, fontWeight:700, color:"#6B7280", textTransform:"uppercase", letterSpacing:"0.05em", whiteSpace:"nowrap" }}>{h}</th>
                           ))}
                         </tr>
@@ -3896,9 +3898,9 @@ function OriginalsSection({ data, canEdit, onUpdate, period, ytApiKey, airtableC
                                 </div>
                               </td>
                               <td style={{ padding:"9px 12px", color:"#6B7280" }}>{d.phone||"—"}</td>
-                              <td style={{ padding:"9px 12px", color:"#374151" }}>{d.religion||"—"}</td>
+                              <td style={{ padding:"9px 12px", color:"#374151" }}>{d.trackCategory||d.religion||"—"}</td>
                               <td style={{ padding:"9px 12px", color:"#374151" }}>{d.language||"—"}</td>
-                              <td style={{ padding:"9px 12px", color:"#374151" }}>{d.type||"—"}</td>
+                              <td style={{ padding:"9px 12px", color:"#374151" }}>{d.genre||d.type||"—"}</td>
                               <td style={{ padding:"9px 10px" }}>
                                 <Chip status={d.scratchStatus==="received"?"done":"pending"} label={d.scratchStatus==="received"?"✓ Rcvd":"Not Yet"} />
                                 {d.scratchDate&&<div style={{ fontSize:9, color:"#6B7280", marginTop:2 }}>{d.scratchDate}</div>}
@@ -3961,7 +3963,7 @@ function OriginalsSection({ data, canEdit, onUpdate, period, ytApiKey, airtableC
         </Modal>
       )}
       {modal?.type==="devotional" && (
-        <Modal title={modal.idx!==null?"Edit Teacher Track":"Add Devotional Track"} onClose={close} wide>
+        <Modal title={modal.idx!==null?"Edit Teacher Track":"Add Teacher Track"} onClose={close} wide>
           <DevotionalForm initial={modal.form} onSave={saveDevotional} onCancel={close} />
         </Modal>
       )}
@@ -4492,16 +4494,25 @@ function DevotionalCSVImporter({ existing, onClose, onImport }) {
 function DevotionalForm({ initial, onSave, onCancel }) {
   const [f, setF] = useState({...initial});
   const u = (k,v) => setF(p=>({...p,[k]:v}));
+  const isDevotional = (f.trackCategory||f.religion||f.type) && (f.trackCategory==="Devotional/Spiritual" || (!f.trackCategory && (f.religion||f.type)));
   return (
     <div>
       <Divider label="Teacher Info" />
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:12 }}>
         <Field label="Teacher Name" value={f.name} onChange={v=>u("name",v)} />
         <Field label="Phone" value={f.phone} onChange={v=>u("phone",v)} />
-        <Field label="Religion" value={f.religion} onChange={v=>u("religion",v)} />
-        <Field label="Deity / Theme" value={f.deity} onChange={v=>u("deity",v)} />
-        <Field label="Language" value={f.language||""} onChange={v=>u("language",v)} options={["","Hindi","Sanskrit","Tamil","Telugu","Kannada","Malayalam","Bengali","Marathi","Gujarati","Punjabi","English","Other"]} />
-        <Field label="Song Type" value={f.type} onChange={v=>u("type",v)} options={["","Bhajan","Arti","Stotra","Shloka","Shabad","Hymn","Other"]} />
+        <Field label="Track Category" value={f.trackCategory||""} onChange={v=>u("trackCategory",v)} options={["","Devotional/Spiritual","General Original"]} />
+        <Field label="Language" value={f.language||""} onChange={v=>u("language",v)} options={["","Hindi","Sanskrit","Tamil","Telugu","Kannada","Malayalam","Bengali","Marathi","Gujarati","Punjabi","Urdu","English","Other"]} />
+        <Field label="Genre" value={f.genre||f.type||""} onChange={v=>{ u("genre",v); u("type",v); }}
+          options={f.trackCategory==="General Original"
+            ? ["","Hindustani Classical","Carnatic Classical","Folk","Fusion","Pop","Sufi","Film / Filmi","Jazz","Western","Other"]
+            : ["","Bhajan","Aarti","Stotra","Shloka","Shabad","Kirtan","Hymn","Other"]} />
+        {(isDevotional || !f.trackCategory) && (
+          <Field label="Religion / Tradition" value={f.religion||""} onChange={v=>u("religion",v)} />
+        )}
+        {(isDevotional || !f.trackCategory) && (
+          <Field label="Deity / Theme" value={f.deity||""} onChange={v=>u("deity",v)} />
+        )}
       </div>
       <Divider label="Pipeline Status" />
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:12 }}>

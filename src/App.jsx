@@ -2896,120 +2896,177 @@ function DevColManager({ cols, onSave, onClose }) {
 // ─── TEACHER SERIES TAB ──────────────────────────────────────────────────────
 function TeacherSeriesTab({ submissions, loading, error, accessToken, onLoad, onStatusChange,
   tsQ, setTsQ, tsSortField, setTsSortField, tsSortDir, setTsSortDir,
-  TS_STAGES, TS_STAGE_COLORS, TS_FORM_URL, TS_SHEET_URL, canEdit }) {
+  TS_STAGES, TS_STAGE_COLORS, TS_FORM_URL, TS_SHEET_URL, canEdit, onNavigateDevotional }) {
 
   const C2 = { pink:"#9D174D", teal:"#047857", gold:"#B45309", blue:"#1E40AF", purple:"#6D28D9", green:"#065F46", red:"#DC2626" };
+  const [tsTypeFilter, setTsTypeFilter] = useState("all");
+  const [tsStageFilter, setTsStageFilter] = useState("all");
+  const [expandedRow, setExpandedRow] = useState(null);
 
-  // Stats
-  const total = submissions.length;
-  const live = submissions.filter(s=>(s.status||"").toLowerCase()==="live").length;
-  const approved = submissions.filter(s=>["Live","Release Prep","Agreement Pending"].includes(s.status)).length;
-  const languages = [...new Set(submissions.map(s=>s.language||s["Language"]||"").filter(Boolean))].length;
+  // ── Helpers ──
+  const getName   = s => s.teacherName  || s["teacherName"]  || "—";
+  const getTitle  = s => s.songTitle    || s["songTitle"]    || "—";
+  const getLang   = s => s.language     || s["language"]     || "—";
+  const getType   = s => s.trackType    || s["trackType"]    || "—";
+  const getDate   = s => (s.submittedAt || s["submittedAt"]  || "").slice(0,10) || "—";
+  const getAudio  = s => s.audioLink    || s["audioLink"]    || "";
+  const getStatus = s => s.status       || s["Status"]       || "Submitted";
+  const getEmail  = s => s.teacherEmail || s["teacherEmail"] || "";
+  const getPhone  = s => s.teacherPhone || s["teacherPhone"] || "";
+  const getGenre  = s => s.genre        || s["genre"]        || "";
+  const getRecType= s => s.recordingType|| s["recordingType"]|| "";
+  const getComposer=s => s.composer     || s["composer"]     || "";
+  const getNotes  = s => s.additionalNotes||s["additionalNotes"]||"";
+  const getDesc   = s => s.description  || s["description"]  || "";
 
-  // Pipeline counts
+  // ── SLA alert: submissions in "Submitted" > 3 days ──
+  const now = Date.now();
+  const isSlaBreached = s => {
+    if (getStatus(s) !== "Submitted") return false;
+    const d = s.submittedAt || s["submittedAt"] || "";
+    if (!d) return false;
+    return (now - new Date(d).getTime()) > 3 * 24 * 60 * 60 * 1000;
+  };
+  const slaBreaches = submissions.filter(isSlaBreached).length;
+
+  // ── Stats ──
+  const total    = submissions.length;
+  const live     = submissions.filter(s => getStatus(s) === "Live").length;
+  const approved = submissions.filter(s => ["Live","Release Prep","Agreement Pending"].includes(getStatus(s))).length;
+  const devotionalCount = submissions.filter(s => getType(s) === "Devotional/Spiritual").length;
+  const generalCount    = submissions.filter(s => getType(s) === "General Original").length;
+  const studioCount     = submissions.filter(s => getRecType(s) === "Studio recording").length;
+  const demoCount       = submissions.filter(s => getRecType(s) === "Phone demo").length;
+  const languages = [...new Set(submissions.map(s => getLang(s)).filter(v => v && v !== "—"))].length;
+
+  // ── Pipeline counts ──
   const stageCounts = {};
-  TS_STAGES.forEach(st => { stageCounts[st] = submissions.filter(s=>s.status===st).length; });
+  TS_STAGES.forEach(st => { stageCounts[st] = submissions.filter(s => getStatus(s) === st).length; });
 
-  // Filter + sort
-  let rows = submissions;
+  // ── Filter + sort ──
+  let rows = [...submissions];
   if (tsQ.trim().length > 1) {
     const q = tsQ.toLowerCase();
     rows = rows.filter(s =>
-      (s.teacherName||s["teacherName"]||"").toLowerCase().includes(q) ||
-      (s.songTitle||s["songTitle"]||"").toLowerCase().includes(q) ||
-      (s.language||s["language"]||"").toLowerCase().includes(q) ||
-      (s.trackType||s["trackType"]||"").toLowerCase().includes(q)
+      getName(s).toLowerCase().includes(q) ||
+      getTitle(s).toLowerCase().includes(q) ||
+      getLang(s).toLowerCase().includes(q) ||
+      getGenre(s).toLowerCase().includes(q) ||
+      getEmail(s).toLowerCase().includes(q)
     );
   }
-  rows = [...rows].sort((a, b) => {
+  if (tsTypeFilter !== "all")  rows = rows.filter(s => getType(s) === tsTypeFilter);
+  if (tsStageFilter !== "all") rows = rows.filter(s => getStatus(s) === tsStageFilter);
+  rows.sort((a, b) => {
     const va = (a[tsSortField]||"").toLowerCase();
     const vb = (b[tsSortField]||"").toLowerCase();
     return tsSortDir === "asc" ? va.localeCompare(vb) : vb.localeCompare(va);
   });
 
-  const getName = s => s.teacherName || s["teacherName"] || s["Teacher Name"] || "—";
-  const getTitle = s => s.songTitle || s["songTitle"] || s["Song Title"] || "—";
-  const getLang = s => s.language || s["language"] || s["Language"] || "—";
-  const getType = s => s.trackType || s["trackType"] || s["Track Type"] || "—";
-  const getDate = s => (s.submittedAt || s["submittedAt"] || s["Submitted At"] || "").slice(0, 10) || "—";
-  const getAudio = s => s.audioLink || s["audioLink"] || s["Audio Link"] || "";
-  const getStatus = s => s.status || s["Status"] || "Submitted";
-
   return (
     <div>
-      {/* Header row */}
-      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:20, flexWrap:"wrap", gap:10 }}>
+      {/* Header */}
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:18, flexWrap:"wrap", gap:10 }}>
         <div>
-          <div style={{ fontSize:15, fontWeight:800, color:"#1A1A1A" }}>🎤 Artium Originals — Teacher Series</div>
-          <div style={{ fontSize:12, color:"#6B7280", marginTop:2 }}>Open submission programme · Gold & above teachers · All languages</div>
+          <div style={{ fontSize:15, fontWeight:800, color:"#1A1A1A" }}>Artium Originals — Teacher Series</div>
+          <div style={{ fontSize:12, color:"#6B7280", marginTop:2 }}>Open submission programme · Gold & above · All languages</div>
         </div>
         <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
           <a href={TS_FORM_URL} target="_blank" rel="noreferrer"
-            style={{ display:"inline-flex", alignItems:"center", gap:5, background:"linear-gradient(135deg,#9D174D,#7C1240)", border:"none", borderRadius:8, color:"#fff", padding:"8px 14px", fontSize:12, fontWeight:700, cursor:"pointer", textDecoration:"none" }}>
-            📝 Open Submission Form
+            style={{ display:"inline-flex", alignItems:"center", gap:5, background:"linear-gradient(135deg,#9D174D,#7C1240)", border:"none", borderRadius:8, color:"#fff", padding:"7px 13px", fontSize:12, fontWeight:700, cursor:"pointer", textDecoration:"none" }}>
+            Open Submission Form
           </a>
           <a href={TS_SHEET_URL} target="_blank" rel="noreferrer"
-            style={{ display:"inline-flex", alignItems:"center", gap:5, background:"rgba(4,120,87,0.1)", border:"1px solid rgba(4,120,87,0.25)", borderRadius:8, color:"#065F46", padding:"8px 14px", fontSize:12, fontWeight:700, cursor:"pointer", textDecoration:"none" }}>
-            📊 Open Sheet
+            style={{ display:"inline-flex", alignItems:"center", gap:5, background:"rgba(4,120,87,0.1)", border:"1px solid rgba(4,120,87,0.25)", borderRadius:8, color:"#065F46", padding:"7px 13px", fontSize:12, fontWeight:700, cursor:"pointer", textDecoration:"none" }}>
+            Open Sheet
           </a>
           <button onClick={onLoad} disabled={loading}
-            style={{ background:"#F9FAFB", border:"1px solid #E5E7EB", borderRadius:8, color:"#374151", padding:"8px 14px", fontSize:12, fontWeight:700, cursor:loading?"wait":"pointer", fontFamily:"inherit" }}>
-            {loading ? "⏳ Loading…" : "⟳ Refresh Data"}
+            style={{ background:"#F9FAFB", border:"1px solid #E5E7EB", borderRadius:8, color:"#374151", padding:"7px 13px", fontSize:12, fontWeight:700, cursor:loading?"wait":"pointer", fontFamily:"inherit" }}>
+            {loading ? "Loading…" : "⟳ Refresh"}
           </button>
         </div>
       </div>
 
-      {/* Stats strip */}
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:12, marginBottom:20 }}>
+      {/* SLA alert */}
+      {slaBreaches > 0 && (
+        <div style={{ background:"rgba(180,83,9,0.08)", border:"1px solid rgba(180,83,9,0.3)", borderRadius:10, padding:"10px 16px", marginBottom:14, fontSize:12, color:"#B45309", fontWeight:600 }}>
+          ⚠ {slaBreaches} submission{slaBreaches>1?"s":""} past 72-hour review SLA — needs attention
+        </div>
+      )}
+
+      {/* Stats strip — 2 rows */}
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:10, marginBottom:10 }}>
         {[
-          ["Total Submissions", total, "#1A1A1A"],
-          ["Approved / In Pipeline", approved, C2.teal],
-          ["Live on DSPs", live, C2.green],
-          ["Languages", languages, C2.blue],
+          ["Total Submissions", total,    "#1A1A1A"],
+          ["In Pipeline",       approved, C2.teal],
+          ["Live on DSPs",      live,     C2.green],
+          ["Languages",         languages,C2.blue],
         ].map(([label, val, color]) => (
-          <div key={label} style={{ background:"rgba(0,0,0,0.02)", border:"1px solid rgba(0,0,0,0.05)", borderRadius:12, padding:"12px 16px", textAlign:"center" }}>
-            <div style={{ fontFamily:"monospace", fontSize:22, fontWeight:800, color }}>{val}</div>
-            <div style={{ fontSize:10, color:"#6B7280", marginTop:3 }}>{label}</div>
+          <div key={label} style={{ background:"rgba(0,0,0,0.02)", border:"1px solid rgba(0,0,0,0.05)", borderRadius:11, padding:"11px 14px", textAlign:"center" }}>
+            <div style={{ fontFamily:"monospace", fontSize:20, fontWeight:800, color }}>{val}</div>
+            <div style={{ fontSize:10, color:"#6B7280", marginTop:2 }}>{label}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:10, marginBottom:18 }}>
+        {[
+          ["Devotional", devotionalCount, C2.blue],
+          ["General",    generalCount,    C2.purple],
+          ["Studio",     studioCount,     C2.teal],
+          ["Phone Demo", demoCount,       C2.gold],
+        ].map(([label, val, color]) => (
+          <div key={label} style={{ background:"rgba(0,0,0,0.02)", border:"1px solid rgba(0,0,0,0.05)", borderRadius:11, padding:"10px 14px", textAlign:"center" }}>
+            <div style={{ fontFamily:"monospace", fontSize:18, fontWeight:800, color }}>{val}</div>
+            <div style={{ fontSize:10, color:"#6B7280", marginTop:2 }}>{label}</div>
           </div>
         ))}
       </div>
 
-      {/* Pipeline Kanban */}
+      {/* Pipeline */}
       {total > 0 && (
-        <div style={{ marginBottom:20 }}>
-          <div style={{ fontSize:10, fontWeight:700, color:"#6B7280", textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:10 }}>Pipeline</div>
+        <div style={{ marginBottom:18 }}>
+          <div style={{ fontSize:10, fontWeight:700, color:"#6B7280", textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:8 }}>Pipeline</div>
           <div style={{ display:"flex", gap:8, overflowX:"auto", paddingBottom:4 }}>
             {TS_STAGES.map(stage => {
               const count = stageCounts[stage] || 0;
               const color = TS_STAGE_COLORS[stage] || "#6B7280";
+              const isActive = tsStageFilter === stage;
               return (
-                <div key={stage} style={{ flex:"0 0 auto", minWidth:110, background:"#fff", border:`1px solid ${color}22`, borderTop:`3px solid ${color}`, borderRadius:10, padding:"12px 14px", textAlign:"center" }}>
-                  <div style={{ fontFamily:"monospace", fontSize:22, fontWeight:800, color }}>{count}</div>
-                  <div style={{ fontSize:10, color:"#6B7280", marginTop:4, lineHeight:1.4 }}>{stage}</div>
+                <div key={stage} onClick={()=>setTsStageFilter(isActive?"all":stage)}
+                  style={{ flex:"0 0 auto", minWidth:108, background: isActive?`${color}14`:"#fff",
+                    border:`1px solid ${isActive?color:color+"22"}`, borderTop:`3px solid ${color}`,
+                    borderRadius:10, padding:"11px 12px", textAlign:"center", cursor:"pointer",
+                    transition:"all 0.15s" }}>
+                  <div style={{ fontFamily:"monospace", fontSize:20, fontWeight:800, color }}>{count}</div>
+                  <div style={{ fontSize:10, color:"#6B7280", marginTop:3, lineHeight:1.4 }}>{stage}</div>
                 </div>
               );
             })}
           </div>
+          {tsStageFilter !== "all" && (
+            <div style={{ fontSize:11, color:"#9CA3AF", marginTop:6 }}>
+              Filtering by: <strong style={{ color:TS_STAGE_COLORS[tsStageFilter] }}>{tsStageFilter}</strong>
+              <button onClick={()=>setTsStageFilter("all")} style={{ marginLeft:8, fontSize:11, color:"#6B7280", background:"none", border:"none", cursor:"pointer", textDecoration:"underline", fontFamily:"inherit" }}>clear</button>
+            </div>
+          )}
         </div>
       )}
 
-      {/* Error / Empty / Load prompt */}
+      {/* Error / Empty */}
       {error && (
         <div style={{ background:"rgba(220,38,38,0.06)", border:"1px solid rgba(220,38,38,0.2)", borderRadius:10, padding:"14px 18px", marginBottom:16, fontSize:13, color:"#DC2626" }}>
-          ⚠️ {error}
+          {error}
         </div>
       )}
-
       {!loading && !error && submissions.length === 0 && (
         <div style={{ background:"rgba(157,23,77,0.04)", border:"1px solid rgba(157,23,77,0.12)", borderRadius:14, padding:"32px 24px", textAlign:"center", marginBottom:16 }}>
-          <div style={{ fontSize:32, marginBottom:12 }}>🎵</div>
           <div style={{ fontSize:15, fontWeight:700, color:"#1A1A1A", marginBottom:6 }}>No submissions loaded</div>
           <div style={{ fontSize:13, color:"#6B7280", marginBottom:18 }}>
-            {accessToken ? "Click Refresh Data to pull submissions from the Google Sheet." : "Sign in to Google Drive (top bar) then click Refresh Data."}
+            {accessToken ? "Click Refresh to pull from the Google Sheet." : "Sign in to Google Drive (top bar) then click Refresh."}
           </div>
           <button onClick={onLoad} disabled={loading}
             style={{ background:"linear-gradient(135deg,#9D174D,#7C1240)", border:"none", borderRadius:8, color:"#fff", padding:"10px 22px", fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>
-            {loading ? "Loading…" : "Load Submissions"}
+            Load Submissions
           </button>
         </div>
       )}
@@ -3017,8 +3074,14 @@ function TeacherSeriesTab({ submissions, loading, error, accessToken, onLoad, on
       {/* Toolbar */}
       {submissions.length > 0 && (
         <div style={{ display:"flex", gap:8, marginBottom:12, flexWrap:"wrap", alignItems:"center" }}>
-          <input value={tsQ} onChange={e=>setTsQ(e.target.value)} placeholder="Search name, title, language…"
+          <input value={tsQ} onChange={e=>setTsQ(e.target.value)} placeholder="Search name, title, language, email…"
             style={{ flex:"1 1 180px", background:"#F9FAFB", border:"1px solid #E5E7EB", borderRadius:7, padding:"6px 12px", fontSize:12, fontFamily:"inherit", outline:"none", color:"#1A1A1A" }} />
+          <select value={tsTypeFilter} onChange={e=>setTsTypeFilter(e.target.value)}
+            style={{ background:"#F9FAFB", border:"1px solid #E5E7EB", borderRadius:7, padding:"6px 10px", color:"#374151", fontSize:12, fontFamily:"inherit", outline:"none" }}>
+            <option value="all">All types</option>
+            <option value="Devotional/Spiritual">Devotional</option>
+            <option value="General Original">General</option>
+          </select>
           <select value={tsSortField} onChange={e=>setTsSortField(e.target.value)}
             style={{ background:"#F9FAFB", border:"1px solid #E5E7EB", borderRadius:7, padding:"6px 10px", color:"#374151", fontSize:12, fontFamily:"inherit", outline:"none" }}>
             <option value="submittedAt">Sort: Date</option>
@@ -3028,9 +3091,9 @@ function TeacherSeriesTab({ submissions, loading, error, accessToken, onLoad, on
           </select>
           <button onClick={()=>setTsSortDir(d=>d==="asc"?"desc":"asc")}
             style={{ background:"#F9FAFB", border:"1px solid #E5E7EB", borderRadius:7, padding:"6px 10px", fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"inherit", color:"#374151" }}>
-            {tsSortDir==="asc" ? "↑ Asc" : "↓ Desc"}
+            {tsSortDir==="asc" ? "↑" : "↓"}
           </button>
-          <span style={{ fontSize:11, color:"#6B7280", marginLeft:4 }}>{rows.length} submission{rows.length!==1?"s":""}</span>
+          <span style={{ fontSize:11, color:"#6B7280" }}>{rows.length} submission{rows.length!==1?"s":""}</span>
         </div>
       )}
 
@@ -3040,60 +3103,101 @@ function TeacherSeriesTab({ submissions, loading, error, accessToken, onLoad, on
           <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
             <thead>
               <tr style={{ borderBottom:"2px solid #E5E7EB" }}>
-                {["Teacher","Track Title","Language","Type","Submitted","Status","Audio",""].map(h => (
+                {["Teacher","Track","Language","Type","Submitted","Status","Audio",""].map(h => (
                   <th key={h} style={{ textAlign:"left", padding:"8px 10px", fontSize:10, fontWeight:700, color:"#6B7280", textTransform:"uppercase", letterSpacing:"0.06em", whiteSpace:"nowrap" }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {rows.map((s, i) => {
-                const status = getStatus(s);
-                const stColor = TS_STAGE_COLORS[status] || "#6B7280";
-                const audioLink = getAudio(s);
+                const status   = getStatus(s);
+                const stColor  = TS_STAGE_COLORS[status] || "#6B7280";
+                const audioLink= getAudio(s);
+                const type     = getType(s);
+                const isDevotional = type === "Devotional/Spiritual";
+                const breached = isSlaBreached(s);
+                const isExpanded = expandedRow === i;
+
                 return (
-                  <tr key={i} style={{ borderBottom:"1px solid rgba(0,0,0,0.04)" }}
-                    onMouseEnter={e=>e.currentTarget.style.background="rgba(157,23,77,0.02)"}
-                    onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-                    <td style={{ padding:"10px 10px" }}>
-                      <div style={{ fontWeight:700, color:"#1A1A1A" }}>{getName(s)}</div>
-                      <div style={{ fontSize:10, color:"#6B7280" }}>{s.teacherPhone||s["teacherPhone"]||""}</div>
-                    </td>
-                    <td style={{ padding:"10px 10px" }}>
-                      <div style={{ fontWeight:600, color:"#374151" }}>{getTitle(s)}</div>
-                      <div style={{ fontSize:10, color:"#6B7280" }}>{s.genre||s["genre"]||s["Genre"]||""}</div>
-                    </td>
-                    <td style={{ padding:"10px 10px", color:"#374151" }}>{getLang(s)}</td>
-                    <td style={{ padding:"10px 10px" }}>
-                      <span style={{ fontSize:10, background: getType(s)==="Devotional/Spiritual" ? "rgba(30,64,175,0.1)" : "rgba(109,40,217,0.1)",
-                        color: getType(s)==="Devotional/Spiritual" ? C2.blue : C2.purple,
-                        borderRadius:5, padding:"2px 7px", fontWeight:700 }}>
-                        {getType(s)==="Devotional/Spiritual" ? "🙏 Devotional" : "🎵 General"}
-                      </span>
-                    </td>
-                    <td style={{ padding:"10px 10px", color:"#6B7280", whiteSpace:"nowrap" }}>{getDate(s)}</td>
-                    <td style={{ padding:"10px 10px" }}>
-                      {canEdit ? (
-                        <select value={status}
-                          onChange={e => onStatusChange(s._rowIndex, e.target.value)}
-                          style={{ background:`${stColor}12`, border:`1px solid ${stColor}40`, borderRadius:6, color:stColor, padding:"4px 8px", fontSize:11, fontWeight:700, fontFamily:"inherit", outline:"none", cursor:"pointer" }}>
-                          {TS_STAGES.map(st => <option key={st} value={st} style={{ background:"#fff", color:"#1A1A1A" }}>{st}</option>)}
-                        </select>
-                      ) : (
-                        <span style={{ fontSize:11, background:`${stColor}12`, color:stColor, borderRadius:5, padding:"3px 8px", fontWeight:700 }}>{status}</span>
-                      )}
-                    </td>
-                    <td style={{ padding:"10px 10px" }}>
-                      {audioLink ? (
-                        <a href={audioLink} target="_blank" rel="noreferrer"
-                          style={{ fontSize:11, color:C2.teal, fontWeight:700, textDecoration:"none" }}>🎵 Listen</a>
-                      ) : <span style={{ color:"#9CA3AF" }}>—</span>}
-                    </td>
-                    <td style={{ padding:"10px 10px" }}>
-                      <div style={{ fontSize:10, color:"#9CA3AF" }}>
-                        {s.recordingType||s["recordingType"]||""}
-                      </div>
-                    </td>
-                  </tr>
+                  <React.Fragment key={i}>
+                    <tr style={{ borderBottom: isExpanded?"none":"1px solid rgba(0,0,0,0.04)", background: breached?"rgba(180,83,9,0.03)":"transparent", cursor:"pointer" }}
+                      onMouseEnter={e=>{ if(!isExpanded) e.currentTarget.style.background="rgba(157,23,77,0.02)"; }}
+                      onMouseLeave={e=>{ if(!isExpanded) e.currentTarget.style.background=breached?"rgba(180,83,9,0.03)":"transparent"; }}
+                      onClick={()=>setExpandedRow(isExpanded?null:i)}>
+                      <td style={{ padding:"10px 10px" }}>
+                        <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                          {breached && <span title="Past 72h SLA" style={{ fontSize:9, background:"rgba(180,83,9,0.15)", color:"#B45309", borderRadius:4, padding:"1px 5px", fontWeight:700, flexShrink:0 }}>⚠ SLA</span>}
+                          <div>
+                            <div style={{ fontWeight:700, color:"#1A1A1A" }}>{getName(s)}</div>
+                            <div style={{ fontSize:10, color:"#6B7280" }}>{getPhone(s)}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td style={{ padding:"10px 10px" }}>
+                        <div style={{ fontWeight:600, color:"#374151" }}>{getTitle(s)}</div>
+                        <div style={{ fontSize:10, color:"#6B7280" }}>{getGenre(s)}</div>
+                      </td>
+                      <td style={{ padding:"10px 10px", color:"#374151", whiteSpace:"nowrap" }}>{getLang(s)}</td>
+                      <td style={{ padding:"10px 10px" }}>
+                        <span style={{ fontSize:10, background: isDevotional?"rgba(30,64,175,0.1)":"rgba(109,40,217,0.1)",
+                          color: isDevotional?C2.blue:C2.purple, borderRadius:5, padding:"2px 7px", fontWeight:700, whiteSpace:"nowrap" }}>
+                          {isDevotional ? "Devotional" : "General"}
+                        </span>
+                      </td>
+                      <td style={{ padding:"10px 10px", color:"#6B7280", whiteSpace:"nowrap" }}>{getDate(s)}</td>
+                      <td style={{ padding:"10px 10px" }}>
+                        {canEdit ? (
+                          <select value={status} onClick={e=>e.stopPropagation()}
+                            onChange={e=>{ e.stopPropagation(); onStatusChange(s._rowIndex, e.target.value); }}
+                            style={{ background:`${stColor}12`, border:`1px solid ${stColor}40`, borderRadius:6, color:stColor, padding:"4px 8px", fontSize:11, fontWeight:700, fontFamily:"inherit", outline:"none", cursor:"pointer" }}>
+                            {TS_STAGES.map(st => <option key={st} value={st} style={{ background:"#fff", color:"#1A1A1A" }}>{st}</option>)}
+                          </select>
+                        ) : (
+                          <span style={{ fontSize:11, background:`${stColor}12`, color:stColor, borderRadius:5, padding:"3px 8px", fontWeight:700 }}>{status}</span>
+                        )}
+                      </td>
+                      <td style={{ padding:"10px 10px" }} onClick={e=>e.stopPropagation()}>
+                        {audioLink
+                          ? <a href={audioLink} target="_blank" rel="noreferrer" style={{ fontSize:11, color:C2.teal, fontWeight:700, textDecoration:"none" }}>Listen</a>
+                          : <span style={{ color:"#9CA3AF" }}>—</span>}
+                      </td>
+                      <td style={{ padding:"10px 10px", color:"#9CA3AF", fontSize:11 }}>
+                        {isExpanded ? "▲" : "▼"}
+                      </td>
+                    </tr>
+
+                    {/* Expanded detail row */}
+                    {isExpanded && (
+                      <tr style={{ borderBottom:"1px solid rgba(0,0,0,0.04)" }}>
+                        <td colSpan={8} style={{ padding:"0 10px 14px 10px" }}>
+                          <div style={{ background:"rgba(0,0,0,0.02)", borderRadius:10, padding:"14px 16px", display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:12 }}>
+                            <div>
+                              <div style={{ fontSize:10, fontWeight:700, color:"#6B7280", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:4 }}>Contact</div>
+                              <div style={{ fontSize:12, color:"#374151" }}>{getEmail(s) || "—"}</div>
+                              <div style={{ fontSize:12, color:"#374151" }}>{getPhone(s) || "—"}</div>
+                            </div>
+                            <div>
+                              <div style={{ fontSize:10, fontWeight:700, color:"#6B7280", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:4 }}>Credits</div>
+                              <div style={{ fontSize:12, color:"#374151" }}>Composer: {getComposer(s)||"—"}</div>
+                              <div style={{ fontSize:12, color:"#374151" }}>Recording: {getRecType(s)||"—"}</div>
+                            </div>
+                            <div>
+                              <div style={{ fontSize:10, fontWeight:700, color:"#6B7280", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:4 }}>Notes from teacher</div>
+                              <div style={{ fontSize:12, color:"#374151", lineHeight:1.6 }}>{getNotes(s)||getDesc(s)||"—"}</div>
+                            </div>
+                            {isDevotional && canEdit && (
+                              <div style={{ gridColumn:"1/-1", marginTop:4 }}>
+                                <button onClick={()=>onNavigateDevotional && onNavigateDevotional()}
+                                  style={{ background:"rgba(30,64,175,0.1)", border:"1px solid rgba(30,64,175,0.25)", borderRadius:7, color:C2.blue, padding:"6px 14px", fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>
+                                  View in Devotional tab →
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
                 );
               })}
             </tbody>
@@ -3902,6 +4006,7 @@ function OriginalsSection({ data, canEdit, onUpdate, period, ytApiKey, airtableC
           TS_STAGES={TS_STAGES} TS_STAGE_COLORS={TS_STAGE_COLORS}
           TS_FORM_URL={TS_FORM_URL} TS_SHEET_URL={TS_SHEET_URL}
           canEdit={canEdit}
+          onNavigateDevotional={()=>setTab("Devotional")}
         />
       )}
 

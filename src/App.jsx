@@ -2892,7 +2892,219 @@ function DevColManager({ cols, onSave, onClose }) {
   );
 }
 
-function OriginalsSection({ data, canEdit, onUpdate, period, ytApiKey, airtableConfig, anthropicKey }) {
+
+// ─── TEACHER SERIES TAB ──────────────────────────────────────────────────────
+function TeacherSeriesTab({ submissions, loading, error, accessToken, onLoad, onStatusChange,
+  tsQ, setTsQ, tsSortField, setTsSortField, tsSortDir, setTsSortDir,
+  TS_STAGES, TS_STAGE_COLORS, TS_FORM_URL, TS_SHEET_URL, canEdit }) {
+
+  const C2 = { pink:"#9D174D", teal:"#047857", gold:"#B45309", blue:"#1E40AF", purple:"#6D28D9", green:"#065F46", red:"#DC2626" };
+
+  // Stats
+  const total = submissions.length;
+  const live = submissions.filter(s=>(s.status||"").toLowerCase()==="live").length;
+  const approved = submissions.filter(s=>["Live","Release Prep","Agreement Pending"].includes(s.status)).length;
+  const languages = [...new Set(submissions.map(s=>s.language||s["Language"]||"").filter(Boolean))].length;
+
+  // Pipeline counts
+  const stageCounts = {};
+  TS_STAGES.forEach(st => { stageCounts[st] = submissions.filter(s=>s.status===st).length; });
+
+  // Filter + sort
+  let rows = submissions;
+  if (tsQ.trim().length > 1) {
+    const q = tsQ.toLowerCase();
+    rows = rows.filter(s =>
+      (s.teacherName||s["teacherName"]||"").toLowerCase().includes(q) ||
+      (s.songTitle||s["songTitle"]||"").toLowerCase().includes(q) ||
+      (s.language||s["language"]||"").toLowerCase().includes(q) ||
+      (s.trackType||s["trackType"]||"").toLowerCase().includes(q)
+    );
+  }
+  rows = [...rows].sort((a, b) => {
+    const va = (a[tsSortField]||"").toLowerCase();
+    const vb = (b[tsSortField]||"").toLowerCase();
+    return tsSortDir === "asc" ? va.localeCompare(vb) : vb.localeCompare(va);
+  });
+
+  const getName = s => s.teacherName || s["teacherName"] || s["Teacher Name"] || "—";
+  const getTitle = s => s.songTitle || s["songTitle"] || s["Song Title"] || "—";
+  const getLang = s => s.language || s["language"] || s["Language"] || "—";
+  const getType = s => s.trackType || s["trackType"] || s["Track Type"] || "—";
+  const getDate = s => (s.submittedAt || s["submittedAt"] || s["Submitted At"] || "").slice(0, 10) || "—";
+  const getAudio = s => s.audioLink || s["audioLink"] || s["Audio Link"] || "";
+  const getStatus = s => s.status || s["Status"] || "Submitted";
+
+  return (
+    <div>
+      {/* Header row */}
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:20, flexWrap:"wrap", gap:10 }}>
+        <div>
+          <div style={{ fontSize:15, fontWeight:800, color:"#1A1A1A" }}>🎤 Artium Originals — Teacher Series</div>
+          <div style={{ fontSize:12, color:"#6B7280", marginTop:2 }}>Open submission programme · Gold & above teachers · All languages</div>
+        </div>
+        <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+          <a href={TS_FORM_URL} target="_blank" rel="noreferrer"
+            style={{ display:"inline-flex", alignItems:"center", gap:5, background:"linear-gradient(135deg,#9D174D,#7C1240)", border:"none", borderRadius:8, color:"#fff", padding:"8px 14px", fontSize:12, fontWeight:700, cursor:"pointer", textDecoration:"none" }}>
+            📝 Open Submission Form
+          </a>
+          <a href={TS_SHEET_URL} target="_blank" rel="noreferrer"
+            style={{ display:"inline-flex", alignItems:"center", gap:5, background:"rgba(4,120,87,0.1)", border:"1px solid rgba(4,120,87,0.25)", borderRadius:8, color:"#065F46", padding:"8px 14px", fontSize:12, fontWeight:700, cursor:"pointer", textDecoration:"none" }}>
+            📊 Open Sheet
+          </a>
+          <button onClick={onLoad} disabled={loading}
+            style={{ background:"#F9FAFB", border:"1px solid #E5E7EB", borderRadius:8, color:"#374151", padding:"8px 14px", fontSize:12, fontWeight:700, cursor:loading?"wait":"pointer", fontFamily:"inherit" }}>
+            {loading ? "⏳ Loading…" : "⟳ Refresh Data"}
+          </button>
+        </div>
+      </div>
+
+      {/* Stats strip */}
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:12, marginBottom:20 }}>
+        {[
+          ["Total Submissions", total, "#1A1A1A"],
+          ["Approved / In Pipeline", approved, C2.teal],
+          ["Live on DSPs", live, C2.green],
+          ["Languages", languages, C2.blue],
+        ].map(([label, val, color]) => (
+          <div key={label} style={{ background:"rgba(0,0,0,0.02)", border:"1px solid rgba(0,0,0,0.05)", borderRadius:12, padding:"12px 16px", textAlign:"center" }}>
+            <div style={{ fontFamily:"monospace", fontSize:22, fontWeight:800, color }}>{val}</div>
+            <div style={{ fontSize:10, color:"#6B7280", marginTop:3 }}>{label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Pipeline Kanban */}
+      {total > 0 && (
+        <div style={{ marginBottom:20 }}>
+          <div style={{ fontSize:10, fontWeight:700, color:"#6B7280", textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:10 }}>Pipeline</div>
+          <div style={{ display:"flex", gap:8, overflowX:"auto", paddingBottom:4 }}>
+            {TS_STAGES.map(stage => {
+              const count = stageCounts[stage] || 0;
+              const color = TS_STAGE_COLORS[stage] || "#6B7280";
+              return (
+                <div key={stage} style={{ flex:"0 0 auto", minWidth:110, background:"#fff", border:`1px solid ${color}22`, borderTop:`3px solid ${color}`, borderRadius:10, padding:"12px 14px", textAlign:"center" }}>
+                  <div style={{ fontFamily:"monospace", fontSize:22, fontWeight:800, color }}>{count}</div>
+                  <div style={{ fontSize:10, color:"#6B7280", marginTop:4, lineHeight:1.4 }}>{stage}</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Error / Empty / Load prompt */}
+      {error && (
+        <div style={{ background:"rgba(220,38,38,0.06)", border:"1px solid rgba(220,38,38,0.2)", borderRadius:10, padding:"14px 18px", marginBottom:16, fontSize:13, color:"#DC2626" }}>
+          ⚠️ {error}
+        </div>
+      )}
+
+      {!loading && !error && submissions.length === 0 && (
+        <div style={{ background:"rgba(157,23,77,0.04)", border:"1px solid rgba(157,23,77,0.12)", borderRadius:14, padding:"32px 24px", textAlign:"center", marginBottom:16 }}>
+          <div style={{ fontSize:32, marginBottom:12 }}>🎵</div>
+          <div style={{ fontSize:15, fontWeight:700, color:"#1A1A1A", marginBottom:6 }}>No submissions loaded</div>
+          <div style={{ fontSize:13, color:"#6B7280", marginBottom:18 }}>
+            {accessToken ? "Click Refresh Data to pull submissions from the Google Sheet." : "Sign in to Google Drive (top bar) then click Refresh Data."}
+          </div>
+          <button onClick={onLoad} disabled={loading}
+            style={{ background:"linear-gradient(135deg,#9D174D,#7C1240)", border:"none", borderRadius:8, color:"#fff", padding:"10px 22px", fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>
+            {loading ? "Loading…" : "Load Submissions"}
+          </button>
+        </div>
+      )}
+
+      {/* Toolbar */}
+      {submissions.length > 0 && (
+        <div style={{ display:"flex", gap:8, marginBottom:12, flexWrap:"wrap", alignItems:"center" }}>
+          <input value={tsQ} onChange={e=>setTsQ(e.target.value)} placeholder="Search name, title, language…"
+            style={{ flex:"1 1 180px", background:"#F9FAFB", border:"1px solid #E5E7EB", borderRadius:7, padding:"6px 12px", fontSize:12, fontFamily:"inherit", outline:"none", color:"#1A1A1A" }} />
+          <select value={tsSortField} onChange={e=>setTsSortField(e.target.value)}
+            style={{ background:"#F9FAFB", border:"1px solid #E5E7EB", borderRadius:7, padding:"6px 10px", color:"#374151", fontSize:12, fontFamily:"inherit", outline:"none" }}>
+            <option value="submittedAt">Sort: Date</option>
+            <option value="teacherName">Sort: Name</option>
+            <option value="language">Sort: Language</option>
+            <option value="status">Sort: Status</option>
+          </select>
+          <button onClick={()=>setTsSortDir(d=>d==="asc"?"desc":"asc")}
+            style={{ background:"#F9FAFB", border:"1px solid #E5E7EB", borderRadius:7, padding:"6px 10px", fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"inherit", color:"#374151" }}>
+            {tsSortDir==="asc" ? "↑ Asc" : "↓ Desc"}
+          </button>
+          <span style={{ fontSize:11, color:"#6B7280", marginLeft:4 }}>{rows.length} submission{rows.length!==1?"s":""}</span>
+        </div>
+      )}
+
+      {/* Table */}
+      {rows.length > 0 && (
+        <div style={{ overflowX:"auto" }}>
+          <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
+            <thead>
+              <tr style={{ borderBottom:"2px solid #E5E7EB" }}>
+                {["Teacher","Track Title","Language","Type","Submitted","Status","Audio",""].map(h => (
+                  <th key={h} style={{ textAlign:"left", padding:"8px 10px", fontSize:10, fontWeight:700, color:"#6B7280", textTransform:"uppercase", letterSpacing:"0.06em", whiteSpace:"nowrap" }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((s, i) => {
+                const status = getStatus(s);
+                const stColor = TS_STAGE_COLORS[status] || "#6B7280";
+                const audioLink = getAudio(s);
+                return (
+                  <tr key={i} style={{ borderBottom:"1px solid rgba(0,0,0,0.04)" }}
+                    onMouseEnter={e=>e.currentTarget.style.background="rgba(157,23,77,0.02)"}
+                    onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                    <td style={{ padding:"10px 10px" }}>
+                      <div style={{ fontWeight:700, color:"#1A1A1A" }}>{getName(s)}</div>
+                      <div style={{ fontSize:10, color:"#6B7280" }}>{s.teacherPhone||s["teacherPhone"]||""}</div>
+                    </td>
+                    <td style={{ padding:"10px 10px" }}>
+                      <div style={{ fontWeight:600, color:"#374151" }}>{getTitle(s)}</div>
+                      <div style={{ fontSize:10, color:"#6B7280" }}>{s.genre||s["genre"]||s["Genre"]||""}</div>
+                    </td>
+                    <td style={{ padding:"10px 10px", color:"#374151" }}>{getLang(s)}</td>
+                    <td style={{ padding:"10px 10px" }}>
+                      <span style={{ fontSize:10, background: getType(s)==="Devotional/Spiritual" ? "rgba(30,64,175,0.1)" : "rgba(109,40,217,0.1)",
+                        color: getType(s)==="Devotional/Spiritual" ? C2.blue : C2.purple,
+                        borderRadius:5, padding:"2px 7px", fontWeight:700 }}>
+                        {getType(s)==="Devotional/Spiritual" ? "🙏 Devotional" : "🎵 General"}
+                      </span>
+                    </td>
+                    <td style={{ padding:"10px 10px", color:"#6B7280", whiteSpace:"nowrap" }}>{getDate(s)}</td>
+                    <td style={{ padding:"10px 10px" }}>
+                      {canEdit ? (
+                        <select value={status}
+                          onChange={e => onStatusChange(s._rowIndex, e.target.value)}
+                          style={{ background:`${stColor}12`, border:`1px solid ${stColor}40`, borderRadius:6, color:stColor, padding:"4px 8px", fontSize:11, fontWeight:700, fontFamily:"inherit", outline:"none", cursor:"pointer" }}>
+                          {TS_STAGES.map(st => <option key={st} value={st} style={{ background:"#fff", color:"#1A1A1A" }}>{st}</option>)}
+                        </select>
+                      ) : (
+                        <span style={{ fontSize:11, background:`${stColor}12`, color:stColor, borderRadius:5, padding:"3px 8px", fontWeight:700 }}>{status}</span>
+                      )}
+                    </td>
+                    <td style={{ padding:"10px 10px" }}>
+                      {audioLink ? (
+                        <a href={audioLink} target="_blank" rel="noreferrer"
+                          style={{ fontSize:11, color:C2.teal, fontWeight:700, textDecoration:"none" }}>🎵 Listen</a>
+                      ) : <span style={{ color:"#9CA3AF" }}>—</span>}
+                    </td>
+                    <td style={{ padding:"10px 10px" }}>
+                      <div style={{ fontSize:10, color:"#9CA3AF" }}>
+                        {s.recordingType||s["recordingType"]||""}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function OriginalsSection({ data, canEdit, onUpdate, period, ytApiKey, airtableConfig, anthropicKey, accessToken }) {
   const [monthlyEntryFor, setMonthlyEntryFor] = useState(null); // index of flagship song
   const [tab, setTab] = useState("Pipeline");
   const { ask:confirmDelete, ConfirmModal:DeleteConfirmModal } = useConfirmDelete();
@@ -2912,6 +3124,61 @@ function OriginalsSection({ data, canEdit, onUpdate, period, ytApiKey, airtableC
   const [flagQ, setFlagQ] = useState("");
   const [flagSort, setFlagSort] = useState("title-asc");
   const [flagFilter, setFlagFilter] = useState("all");
+  const [tsSubmissions, setTsSubmissions] = useState([]);
+  const [tsLoading, setTsLoading] = useState(false);
+  const [tsError, setTsError] = useState("");
+  const [tsQ, setTsQ] = useState("");
+  const [tsSortField, setTsSortField] = useState("submittedAt");
+  const [tsSortDir, setTsSortDir] = useState("desc");
+
+  const TS_SHEET_ID = "1LceHmgfvhgPXJNYZpSnIJ7ePYwpFwjNa7BlrMt-PUcg";
+  const TS_SHEET_NAME = "Teacher+Submissions";
+  const TS_FORM_URL = "https://talent-originals.vercel.app/ao-teacher-series.html";
+  const TS_SHEET_URL = `https://docs.google.com/spreadsheets/d/${TS_SHEET_ID}`;
+
+  const TS_STAGES = ["Submitted","QC In Progress","Agreement Pending","Release Prep","Live","Rejected"];
+  const TS_STAGE_COLORS = { "Submitted":"#1E40AF","QC In Progress":"#B45309","Agreement Pending":"#6D28D9","Release Prep":"#047857","Live":"#065F46","Rejected":"#DC2626" };
+
+  async function loadTsSubmissions(token) {
+    if (!token) { setTsError("Sign in to Google Drive to load submissions"); return; }
+    setTsLoading(true); setTsError("");
+    try {
+      const range = encodeURIComponent("Teacher Submissions!A:Z");
+      const res = await fetch(
+        `https://sheets.googleapis.com/v4/spreadsheets/${TS_SHEET_ID}/values/${range}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      if (!res.ok) { setTsError("Could not load sheet — check permissions"); setTsLoading(false); return; }
+      const json = await res.json();
+      const rows = json.values || [];
+      if (rows.length < 2) { setTsSubmissions([]); setTsLoading(false); return; }
+      const headers = rows[0].map(h => (h||"").trim());
+      const data = rows.slice(1).map((row, i) => {
+        const obj = { _rowIndex: i + 2 };
+        headers.forEach((h, hi) => { obj[h] = row[hi] || ""; });
+        if (!obj.status) obj.status = "Submitted";
+        return obj;
+      }).filter(r => r["teacherName"] || r["Teacher Name"] || r["songTitle"] || r["Song Title"]);
+      setTsSubmissions(data);
+    } catch(e) { setTsError("Error loading data"); }
+    setTsLoading(false);
+  }
+
+  async function updateTsStatus(rowIndex, newStatus, token) {
+    if (!token) return;
+    const range = encodeURIComponent(`Teacher Submissions!M${rowIndex}`);
+    try {
+      await fetch(
+        `https://sheets.googleapis.com/v4/spreadsheets/${TS_SHEET_ID}/values/${range}?valueInputOption=RAW`,
+        {
+          method: "PUT",
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ values: [[newStatus]] })
+        }
+      );
+      setTsSubmissions(prev => prev.map(s => s._rowIndex === rowIndex ? { ...s, status: newStatus } : s));
+    } catch(e) { console.error("Status update failed", e); }
+  }
 
   const flagship   = data.flagship   || [];
   const devotional = data.devotional || [];
@@ -2961,7 +3228,7 @@ function OriginalsSection({ data, canEdit, onUpdate, period, ytApiKey, airtableC
         <KPI val={scouting.length} label="Scouting Pipeline" sub={`${scouting.filter(s=>s.status==="interested"||s.status==="material sent").length} warm leads`} color="#6D28D9" />
       </div>
 
-      <SubTabs tabs={["Pipeline","Flagship","Devotional","Scouting","Festival Calendar"]} active={tab} onChange={setTab} accent="#9D174D" />
+      <SubTabs tabs={["Pipeline","Flagship","Devotional","Scouting","Festival Calendar","Teacher Series"]} active={tab} onChange={setTab} accent="#9D174D" />
       {tab==="Pipeline" && <OriginalsPlanningModule data={data} canEdit={canEdit} onUpdate={onUpdate} anthropicKey={anthropicKey} />}
 
       {/* ── Flagship ── */}
@@ -3618,6 +3885,24 @@ function OriginalsSection({ data, canEdit, onUpdate, period, ytApiKey, airtableC
             );
           })()}
         </>
+      )}
+
+      {/* ── Teacher Series ── */}
+      {tab==="Teacher Series" && (
+        <TeacherSeriesTab
+          submissions={tsSubmissions}
+          loading={tsLoading}
+          error={tsError}
+          accessToken={accessToken}
+          onLoad={()=>loadTsSubmissions(accessToken)}
+          onStatusChange={(rowIndex, status)=>updateTsStatus(rowIndex, status, accessToken)}
+          tsQ={tsQ} setTsQ={setTsQ}
+          tsSortField={tsSortField} setTsSortField={setTsSortField}
+          tsSortDir={tsSortDir} setTsSortDir={setTsSortDir}
+          TS_STAGES={TS_STAGES} TS_STAGE_COLORS={TS_STAGE_COLORS}
+          TS_FORM_URL={TS_FORM_URL} TS_SHEET_URL={TS_SHEET_URL}
+          canEdit={canEdit}
+        />
       )}
 
       {/* Flagship form modal */}
@@ -16484,7 +16769,7 @@ export default function App() {
           {section==="chat"      && <ChatSection data={data} anthropicKey={anthropicKey} onUpdate={nd=>{ const merged={...data,...nd}; setData(merged); try{localStorage.setItem("artium-cms-v4",JSON.stringify(merged));}catch{} }} />}
           {section==="atdp"      && <ErrorBoundary><ATDPSection data={data.atdp} canEdit={canEdit} canMarkAtt={canMarkAtt} canSyncRsvp={canSyncRsvp} onUpdate={v=>updateSection("atdp",v)} period={period} anthropicKey={anthropicKey} isMobile={isMobile} fullData={data} onMarkAttendance={()=>setShowMobileAtt(true)} /></ErrorBoundary>}
           {section==="unmute"    && <UnmuteSection data={data.unmute} canEdit={canEditUnmute} onUpdate={v=>updateSection("unmute",v)} period={period} ytApiKey={ytApiKey} onCloudSave={handleDriveSave} onCloudLoad={handleDriveLoad} gdriveStatus={gdriveStatus} accessToken={accessToken} onSignIn={()=>signIn(async (token)=>{ await handleDriveLoadWithToken(token); })} />}
-          {section==="originals" && <ErrorBoundary><OriginalsSection data={data.originals} canEdit={canEditOriginals} onUpdate={v=>updateSection("originals",v)} period={period} ytApiKey={ytApiKey} airtableConfig={airtableConfig} anthropicKey={anthropicKey} /></ErrorBoundary>}
+          {section==="originals" && <ErrorBoundary><OriginalsSection data={data.originals} canEdit={canEditOriginals} onUpdate={v=>updateSection("originals",v)} period={period} ytApiKey={ytApiKey} airtableConfig={airtableConfig} anthropicKey={anthropicKey} accessToken={accessToken} /></ErrorBoundary>}
           {section==="analysis"  && <AnalysisSection data={data} period={period} anthropicKey={anthropicKey} unmuteCadence={unmuteCadence} />}
           {section==="deadlines" && <DeadlinesSection canEdit={canEdit} anthropicKey={anthropicKey} />}
           {section==="pms"       && <PMSSection data={data} anthropicKey={anthropicKey} />}

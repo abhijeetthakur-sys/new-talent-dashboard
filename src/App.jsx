@@ -2902,6 +2902,7 @@ function TeacherSeriesTab({ submissions, loading, error, accessToken, onLoad, on
   const [tsTypeFilter, setTsTypeFilter] = useState("all");
   const [tsStageFilter, setTsStageFilter] = useState("all");
   const [expandedRow, setExpandedRow] = useState(null);
+  const [tsView, setTsView] = useState("grid");
 
   // ── Helpers ──
   const getName   = s => s.teacherName  || s["teacherName"]  || "—";
@@ -3095,13 +3096,17 @@ function TeacherSeriesTab({ submissions, loading, error, accessToken, onLoad, on
             style={{ background:"#F9FAFB", border:"1px solid #E5E7EB", borderRadius:7, padding:"6px 10px", fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"inherit", color:"#374151" }}>
             {tsSortDir==="asc" ? "↑" : "↓"}
           </button>
+          <button onClick={()=>setTsView("grid")} title="Card view"
+            style={{ background:tsView==="grid"?"rgba(157,23,77,0.12)":"#F9FAFB", border:`1px solid ${tsView==="grid"?"rgba(157,23,77,0.35)":"#E5E7EB"}`, borderRadius:7, padding:"5px 9px", color:tsView==="grid"?"#9D174D":"#6B7280", fontSize:13, cursor:"pointer" }}>▦</button>
+          <button onClick={()=>setTsView("list")} title="List view"
+            style={{ background:tsView==="list"?"rgba(157,23,77,0.12)":"#F9FAFB", border:`1px solid ${tsView==="list"?"rgba(157,23,77,0.35)":"#E5E7EB"}`, borderRadius:7, padding:"5px 9px", color:tsView==="list"?"#9D174D":"#6B7280", fontSize:13, cursor:"pointer" }}>☰</button>
           <span style={{ fontSize:11, color:"#6B7280" }}>{rows.length} submission{rows.length!==1?"s":""}</span>
         </div>
       )}
 
-      {/* Card Grid */}
-      {rows.length > 0 && (
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(230px,1fr))", gap:16 }}>
+      {/* Card Grid / List */}
+      {rows.length > 0 && tsView === "grid" && (
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))", gap:14 }}>
           {rows.map((s, i) => {
             const status = getStatus(s);
             const stColor = TS_STAGE_COLORS[status] || "#6B7280";
@@ -3112,76 +3117,98 @@ function TeacherSeriesTab({ submissions, loading, error, accessToken, onLoad, on
             const typeColor = isDevotional ? C2.blue : C2.purple;
             const typeLabel = isDevotional ? "Devotional" : "General";
             const isExpanded = expandedRow === i;
-
             return (
               <div key={i}
-                style={{ background:"rgba(255,255,255,0.75)", border:`1px solid ${breached?"rgba(180,83,9,0.35)":"#E5E7EB"}`, borderRadius:16, overflow:"hidden", display:"flex", flexDirection:"column", transition:"all 0.2s" }}
-                onMouseEnter={e=>{ e.currentTarget.style.transform="translateY(-2px)"; e.currentTarget.style.boxShadow="0 8px 28px rgba(0,0,0,0.1)"; e.currentTarget.style.borderColor=`${stColor}55`; }}
+                style={{ background:"rgba(255,255,255,0.75)", border:`1px solid ${breached?"rgba(180,83,9,0.35)":"#E5E7EB"}`, borderRadius:14, overflow:"hidden", display:"flex", flexDirection:"column", transition:"all 0.2s" }}
+                onMouseEnter={e=>{ e.currentTarget.style.transform="translateY(-2px)"; e.currentTarget.style.boxShadow="0 6px 20px rgba(0,0,0,0.08)"; e.currentTarget.style.borderColor=`${stColor}55`; }}
                 onMouseLeave={e=>{ e.currentTarget.style.transform="none"; e.currentTarget.style.boxShadow="none"; e.currentTarget.style.borderColor=breached?"rgba(180,83,9,0.35)":"#E5E7EB"; }}>
-
-                {/* Art placeholder */}
-                <div style={{ position:"relative", aspectRatio:"1/1", background:`linear-gradient(135deg, ${typeColor}10, ${stColor}08)`, display:"flex", alignItems:"center", justifyContent:"center", overflow:"hidden" }}>
-                  <div style={{ fontSize:48, opacity:0.15 }}>♪</div>
-                  <div style={{ position:"absolute", top:10, left:10, display:"flex", gap:5, flexWrap:"wrap" }}>
-                    {breached && <span style={{ fontSize:9, background:"rgba(180,83,9,0.85)", color:"#fff", borderRadius:4, padding:"2px 6px", fontWeight:700 }}>⚠ SLA</span>}
-                    <span style={{ fontSize:9, background:`${typeColor}cc`, color:"#fff", borderRadius:4, padding:"2px 6px", fontWeight:700 }}>{typeLabel}</span>
+                {/* Compact art bar — not square, just a colour strip */}
+                <div style={{ position:"relative", height:80, background:`linear-gradient(135deg, ${typeColor}15, ${stColor}10)`, display:"flex", alignItems:"center", justifyContent:"center", overflow:"hidden" }}>
+                  <div style={{ fontSize:32, opacity:0.12 }}>♪</div>
+                  <div style={{ position:"absolute", top:8, left:8, display:"flex", gap:4 }}>
+                    {breached && <span style={{ fontSize:9, background:"rgba(180,83,9,0.85)", color:"#fff", borderRadius:4, padding:"2px 5px", fontWeight:700 }}>⚠ SLA</span>}
+                    <span style={{ fontSize:9, background:`${typeColor}cc`, color:"#fff", borderRadius:4, padding:"2px 5px", fontWeight:700 }}>{typeLabel}</span>
                   </div>
-                  <div style={{ position:"absolute", bottom:10, right:10 }}>
-                    <span style={{ fontSize:9, fontWeight:700, padding:"3px 8px", borderRadius:99, background:`${stColor}cc`, color:"#fff" }}>{status}</span>
-                  </div>
-                  {/* Progress bar */}
-                  <div style={{ position:"absolute", bottom:0, left:0, right:0, height:2, background:"rgba(0,0,0,0.08)" }}>
+                  <span style={{ position:"absolute", bottom:8, right:8, fontSize:9, fontWeight:700, padding:"2px 7px", borderRadius:99, background:`${stColor}cc`, color:"#fff" }}>{status}</span>
+                  <div style={{ position:"absolute", bottom:0, left:0, right:0, height:2, background:"rgba(0,0,0,0.06)" }}>
                     <div style={{ height:"100%", background:stColor, width: status==="Live"?"100%":status==="Release Prep"?"80%":status==="Agreement Pending"?"60%":status==="QC In Progress"?"40%":"15%", transition:"width 0.4s" }} />
                   </div>
                 </div>
-
-                {/* Card body */}
-                <div style={{ padding:"14px 14px 12px", flex:1, display:"flex", flexDirection:"column", gap:5 }}>
-                  <div style={{ fontSize:14, fontWeight:800, color:"#1A1A1A", lineHeight:1.3, overflow:"hidden", display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical" }}>{getTitle(s)}</div>
+                <div style={{ padding:"12px 13px 11px", flex:1, display:"flex", flexDirection:"column", gap:4 }}>
+                  <div style={{ fontSize:13, fontWeight:800, color:"#1A1A1A", lineHeight:1.3, overflow:"hidden", display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical" }}>{getTitle(s)}</div>
                   <div style={{ fontSize:11, color:"#6B7280" }}>{getName(s)}</div>
-                  <div style={{ fontSize:11, color:"#9CA3AF" }}>{getLang(s)} · {getGenre(s)||"—"}</div>
+                  <div style={{ fontSize:10, color:"#9CA3AF" }}>{getLang(s)} · {getGenre(s)||"—"}</div>
                   <div style={{ fontSize:10, color:"#B45309", fontWeight:600 }}>{getDate(s)}</div>
-
-                  {/* Expand toggle */}
                   <button onClick={()=>setExpandedRow(isExpanded?null:i)}
                     style={{ background:"none", border:"none", textAlign:"left", color:"#9CA3AF", fontSize:10, cursor:"pointer", fontFamily:"inherit", padding:"2px 0", marginTop:2 }}>
                     {isExpanded ? "▲ Less" : "▼ Details"}
                   </button>
-
-                  {/* Expanded details */}
                   {isExpanded && (
-                    <div style={{ background:"rgba(0,0,0,0.03)", borderRadius:8, padding:"10px 12px", marginTop:4, display:"flex", flexDirection:"column", gap:6 }}>
+                    <div style={{ background:"rgba(0,0,0,0.03)", borderRadius:8, padding:"9px 11px", marginTop:3, display:"flex", flexDirection:"column", gap:5 }}>
                       <div style={{ fontSize:11, color:"#374151" }}><span style={{ color:"#9CA3AF" }}>Email: </span>{getEmail(s)||"—"}</div>
-                      <div style={{ fontSize:11, color:"#374151" }}><span style={{ color:"#9CA3AF" }}>Phone: </span>{getPhone(s)||"—"}</div>
                       <div style={{ fontSize:11, color:"#374151" }}><span style={{ color:"#9CA3AF" }}>Composer: </span>{getComposer(s)||"—"}</div>
                       <div style={{ fontSize:11, color:"#374151" }}><span style={{ color:"#9CA3AF" }}>Recording: </span>{getRecType(s)||"—"}</div>
-                      {(getNotes(s)||getDesc(s)) && <div style={{ fontSize:11, color:"#374151", lineHeight:1.55 }}><span style={{ color:"#9CA3AF" }}>Notes: </span>{getNotes(s)||getDesc(s)}</div>}
-                      {isDevotional && canEdit && (
-                        <button onClick={()=>onNavigateDevotional&&onNavigateDevotional()}
-                          style={{ marginTop:4, background:"rgba(30,64,175,0.08)", border:"1px solid rgba(30,64,175,0.2)", borderRadius:6, color:C2.blue, padding:"5px 10px", fontSize:10, fontWeight:700, cursor:"pointer", fontFamily:"inherit", textAlign:"left" }}>
-                          View in Devotional tab →
-                        </button>
-                      )}
+                      {(getNotes(s)||getDesc(s)) && <div style={{ fontSize:11, color:"#6B7280", lineHeight:1.5 }}>{getNotes(s)||getDesc(s)}</div>}
                     </div>
                   )}
-
-                  {/* Action row */}
-                  <div style={{ display:"flex", gap:6, marginTop:"auto", paddingTop:8 }}>
-                    {audioLink && (
-                      <a href={audioLink} target="_blank" rel="noreferrer"
-                        style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(4,120,87,0.1)", border:"1px solid rgba(4,120,87,0.25)", borderRadius:7, color:C2.teal, fontSize:10, fontWeight:700, padding:"6px 8px", textDecoration:"none" }}>
-                        Listen
-                      </a>
-                    )}
-                    {canEdit && (
-                      <select value={status}
-                        onChange={e=>onStatusChange(s._rowIndex, e.target.value)}
-                        style={{ flex:2, background:`${stColor}10`, border:`1px solid ${stColor}35`, borderRadius:7, color:stColor, padding:"5px 7px", fontSize:10, fontWeight:700, fontFamily:"inherit", outline:"none", cursor:"pointer" }}>
-                        {TS_STAGES.map(st => <option key={st} value={st} style={{ background:"#fff", color:"#1A1A1A" }}>{st}</option>)}
-                      </select>
-                    )}
+                  <div style={{ display:"flex", gap:5, marginTop:"auto", paddingTop:7 }}>
+                    {audioLink && <a href={audioLink} target="_blank" rel="noreferrer" style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(4,120,87,0.1)", border:"1px solid rgba(4,120,87,0.2)", borderRadius:6, color:C2.teal, fontSize:10, fontWeight:700, padding:"5px 7px", textDecoration:"none" }}>Listen</a>}
+                    {canEdit && <select value={status} onChange={e=>onStatusChange(s._rowIndex, e.target.value)} style={{ flex:2, background:`${stColor}10`, border:`1px solid ${stColor}30`, borderRadius:6, color:stColor, padding:"4px 6px", fontSize:10, fontWeight:700, fontFamily:"inherit", outline:"none", cursor:"pointer" }}>
+                      {TS_STAGES.map(st=><option key={st} value={st} style={{ background:"#fff", color:"#1A1A1A" }}>{st}</option>)}
+                    </select>}
                   </div>
                 </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* List View */}
+      {rows.length > 0 && tsView === "list" && (
+        <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+          {rows.map((s, i) => {
+            const status = getStatus(s);
+            const stColor = TS_STAGE_COLORS[status] || "#6B7280";
+            const audioLink = getAudio(s);
+            const type = getType(s);
+            const isDevotional = type === "Devotional/Spiritual";
+            const breached = isSlaBreached(s);
+            const typeColor = isDevotional ? C2.blue : C2.purple;
+            const isExpanded = expandedRow === i;
+            return (
+              <div key={i} style={{ background:"rgba(255,255,255,0.75)", border:`1px solid ${breached?"rgba(180,83,9,0.3)":"#E5E7EB"}`, borderRadius:12, padding:"13px 16px", transition:"all 0.15s", cursor:"pointer" }}
+                onMouseEnter={e=>e.currentTarget.style.borderColor=`${stColor}44`}
+                onMouseLeave={e=>e.currentTarget.style.borderColor=breached?"rgba(180,83,9,0.3)":"#E5E7EB"}
+                onClick={()=>setExpandedRow(isExpanded?null:i)}>
+                <div style={{ display:"flex", alignItems:"center", gap:12, flexWrap:"wrap" }}>
+                  <div style={{ flex:1, minWidth:160 }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:2 }}>
+                      {breached && <span style={{ fontSize:9, background:"rgba(180,83,9,0.15)", color:"#B45309", borderRadius:4, padding:"1px 5px", fontWeight:700 }}>⚠ SLA</span>}
+                      <div style={{ fontSize:13, fontWeight:700, color:"#1A1A1A" }}>{getTitle(s)}</div>
+                    </div>
+                    <div style={{ fontSize:11, color:"#6B7280" }}>{getName(s)} · {getLang(s)} · {getGenre(s)||"—"}</div>
+                  </div>
+                  <span style={{ fontSize:9, fontWeight:700, background:`${typeColor}12`, color:typeColor, border:`1px solid ${typeColor}30`, borderRadius:99, padding:"2px 8px" }}>{isDevotional?"Devotional":"General"}</span>
+                  <span style={{ fontSize:10, color:"#9CA3AF" }}>{getDate(s)}</span>
+                  {canEdit ? (
+                    <select value={status} onClick={e=>e.stopPropagation()} onChange={e=>{ e.stopPropagation(); onStatusChange(s._rowIndex, e.target.value); }}
+                      style={{ background:`${stColor}10`, border:`1px solid ${stColor}35`, borderRadius:6, color:stColor, padding:"4px 8px", fontSize:11, fontWeight:700, fontFamily:"inherit", outline:"none", cursor:"pointer" }}>
+                      {TS_STAGES.map(st=><option key={st} value={st} style={{ background:"#fff", color:"#1A1A1A" }}>{st}</option>)}
+                    </select>
+                  ) : (
+                    <span style={{ fontSize:11, background:`${stColor}12`, color:stColor, borderRadius:5, padding:"3px 8px", fontWeight:700 }}>{status}</span>
+                  )}
+                  {audioLink && <a href={audioLink} target="_blank" rel="noreferrer" onClick={e=>e.stopPropagation()} style={{ fontSize:11, color:C2.teal, fontWeight:700, textDecoration:"none" }}>Listen</a>}
+                  <span style={{ fontSize:11, color:"#9CA3AF" }}>{isExpanded?"▲":"▼"}</span>
+                </div>
+                {isExpanded && (
+                  <div style={{ marginTop:10, paddingTop:10, borderTop:"1px solid rgba(0,0,0,0.05)", display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:10 }}>
+                    <div style={{ fontSize:11, color:"#374151" }}><span style={{ color:"#9CA3AF", display:"block", fontSize:10, marginBottom:2 }}>Contact</span>{getEmail(s)||"—"}<br/>{getPhone(s)||"—"}</div>
+                    <div style={{ fontSize:11, color:"#374151" }}><span style={{ color:"#9CA3AF", display:"block", fontSize:10, marginBottom:2 }}>Credits</span>Composer: {getComposer(s)||"—"}<br/>Recording: {getRecType(s)||"—"}</div>
+                    <div style={{ fontSize:11, color:"#6B7280", lineHeight:1.6 }}><span style={{ color:"#9CA3AF", display:"block", fontSize:10, marginBottom:2 }}>Notes</span>{getNotes(s)||getDesc(s)||"—"}</div>
+                  </div>
+                )}
               </div>
             );
           })}

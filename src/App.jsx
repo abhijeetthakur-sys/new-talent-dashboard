@@ -2896,7 +2896,7 @@ function DevColManager({ cols, onSave, onClose }) {
 // ─── TEACHER SERIES TAB ──────────────────────────────────────────────────────
 function TeacherSeriesTab({ submissions, loading, error, accessToken, onLoad, onStatusChange,
   tsQ, setTsQ, tsSortField, setTsSortField, tsSortDir, setTsSortDir,
-  TS_STAGES, TS_STAGE_COLORS, TS_FORM_URL, TS_SHEET_URL, canEdit, onNavigateDevotional, hideHeader=false }) {
+  TS_STAGES, TS_STAGE_COLORS, TS_FORM_URL, TS_SHEET_URL, canEdit, onNavigateDevotional, hideHeader=false, onMoveToProduction }) {
 
   const C2 = { pink:"#9D174D", teal:"#047857", gold:"#B45309", blue:"#1E40AF", purple:"#6D28D9", green:"#065F46", red:"#DC2626" };
   const [tsTypeFilter, setTsTypeFilter] = useState("all");
@@ -3151,11 +3151,17 @@ function TeacherSeriesTab({ submissions, loading, error, accessToken, onLoad, on
                       {(getNotes(s)||getDesc(s)) && <div style={{ fontSize:11, color:"#6B7280", lineHeight:1.5 }}>{getNotes(s)||getDesc(s)}</div>}
                     </div>
                   )}
-                  <div style={{ display:"flex", gap:5, marginTop:"auto", paddingTop:7 }}>
-                    {audioLink && <a href={audioLink} target="_blank" rel="noreferrer" style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(4,120,87,0.1)", border:"1px solid rgba(4,120,87,0.2)", borderRadius:6, color:C2.teal, fontSize:10, fontWeight:700, padding:"5px 7px", textDecoration:"none" }}>Listen</a>}
+                  <div style={{ display:"flex", gap:5, marginTop:"auto", paddingTop:7, flexWrap:"wrap" }}>
+                    {audioLink && <a href={audioLink} target="_blank" rel="noreferrer" style={{ display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(4,120,87,0.1)", border:"1px solid rgba(4,120,87,0.2)", borderRadius:6, color:C2.teal, fontSize:10, fontWeight:700, padding:"5px 7px", textDecoration:"none" }}>Listen</a>}
                     {canEdit && <select value={status} onChange={e=>onStatusChange(s._rowIndex, e.target.value)} style={{ flex:2, background:`${stColor}10`, border:`1px solid ${stColor}30`, borderRadius:6, color:stColor, padding:"4px 6px", fontSize:10, fontWeight:700, fontFamily:"inherit", outline:"none", cursor:"pointer" }}>
                       {TS_STAGES.map(st=><option key={st} value={st} style={{ background:"#fff", color:"#1A1A1A" }}>{st}</option>)}
                     </select>}
+                    {canEdit && onMoveToProduction && (
+                      <button onClick={()=>onMoveToProduction(s)} title="Move to Production tracker"
+                        style={{ background:"rgba(157,23,77,0.1)", border:"1px solid rgba(157,23,77,0.25)", borderRadius:6, color:"#9D174D", fontSize:10, fontWeight:700, padding:"5px 8px", cursor:"pointer", fontFamily:"inherit", whiteSpace:"nowrap" }}>
+                        + Production
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -3200,6 +3206,7 @@ function TeacherSeriesTab({ submissions, loading, error, accessToken, onLoad, on
                     <span style={{ fontSize:11, background:`${stColor}12`, color:stColor, borderRadius:5, padding:"3px 8px", fontWeight:700 }}>{status}</span>
                   )}
                   {audioLink && <a href={audioLink} target="_blank" rel="noreferrer" onClick={e=>e.stopPropagation()} style={{ fontSize:11, color:C2.teal, fontWeight:700, textDecoration:"none" }}>Listen</a>}
+                  {canEdit && onMoveToProduction && <button onClick={e=>{ e.stopPropagation(); onMoveToProduction(s); }} style={{ background:"rgba(157,23,77,0.1)", border:"1px solid rgba(157,23,77,0.25)", borderRadius:6, color:"#9D174D", fontSize:11, fontWeight:700, padding:"4px 9px", cursor:"pointer", fontFamily:"inherit" }}>+ Production</button>}
                   <span style={{ fontSize:11, color:"#9CA3AF" }}>{isExpanded?"▲":"▼"}</span>
                 </div>
                 {isExpanded && (
@@ -3755,14 +3762,18 @@ function OriginalsSection({ data, canEdit, onUpdate, period, ytApiKey, airtableC
 
             {/* Sub-section toggle */}
             <div style={{ display:"flex", gap:0, background:"#F3F4F6", borderRadius:10, padding:3, width:"fit-content" }}>
-              {["Submissions","Production"].map(sec=>(
+              {[
+                ["Submissions", `Submissions (${tsSubmissions.length})`],
+                ["Production",  `Production (${devotional.filter(d=>!d.releaseDate).length})`],
+                ["Released",    `Released (${devotional.filter(d=>d.releaseDate).length})`],
+              ].map(([sec, label])=>(
                 <button key={sec} onClick={()=>setToSubSection(sec)}
-                  style={{ padding:"7px 20px", borderRadius:8, border:"none", fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"inherit",
+                  style={{ padding:"7px 18px", borderRadius:8, border:"none", fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"inherit",
                     background: toSubSection===sec?"#fff":"transparent",
-                    color: toSubSection===sec?"#9D174D":"#6B7280",
+                    color: toSubSection===sec ? (sec==="Released"?"#047857":"#9D174D") : "#6B7280",
                     boxShadow: toSubSection===sec?"0 1px 4px rgba(0,0,0,0.1)":"none",
                     transition:"all 0.15s" }}>
-                  {sec==="Submissions" ? `Submissions (${tsSubmissions.length})` : `Production (${devotional.length})`}
+                  {label}
                 </button>
               ))}
             </div>
@@ -3785,7 +3796,70 @@ function OriginalsSection({ data, canEdit, onUpdate, period, ytApiKey, airtableC
               canEdit={canEdit}
               onNavigateDevotional={()=>setToSubSection("Production")}
               hideHeader={true}
+              onMoveToProduction={s=>{
+                const prefill = {
+                  name: s.teacherName||s["teacherName"]||"",
+                  phone: s.teacherPhone||s["teacherPhone"]||"",
+                  trackCategory: s.trackType||s["trackType"]||"",
+                  language: s.language||s["language"]||"",
+                  genre: s.genre||s["genre"]||"",
+                  type: s.genre||s["genre"]||"",
+                  religion: "", deity: "",
+                  scratchStatus:"not yet", scratchDate:"",
+                  finalStatus:"not yet", finalDate:"",
+                  prodStatus:"in progress",
+                  releaseDate:"", finalTrackLink: s.audioLink||s["audioLink"]||"",
+                  ytLink:"", dspLink:"", albumArtStatus:"", notes:"",
+                  songTitle: s.songTitle||s["songTitle"]||"",
+                };
+                open("devotional", prefill);
+                setToSubSection("Production");
+              }}
             />
+          )}
+
+          {/* ── RELEASED sub-section ── */}
+          {toSubSection==="Released" && (
+            <div>
+              {devotional.filter(d=>d.releaseDate).length === 0 ? (
+                <div style={{ textAlign:"center", padding:"40px 20px", color:"#6B7280" }}>
+                  <div style={{ fontSize:32, marginBottom:12 }}>🎵</div>
+                  <div style={{ fontSize:14, fontWeight:700, color:"#1A1A1A", marginBottom:6 }}>No released tracks yet</div>
+                  <div style={{ fontSize:13 }}>Once a track has a release date in Production, it will appear here.</div>
+                </div>
+              ) : (
+                <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))", gap:16 }}>
+                  {devotional.filter(d=>d.releaseDate).map((d,i)=>{
+                    const realIdx = devotional.findIndex(x=>x.id===d.id);
+                    return (
+                      <div key={d.id||i} style={{ background:"rgba(255,255,255,0.78)", border:"1px solid rgba(4,120,87,0.2)", borderRadius:16, overflow:"hidden", display:"flex", flexDirection:"column", transition:"all 0.2s" }}
+                        onMouseEnter={e=>{ e.currentTarget.style.transform="translateY(-2px)"; e.currentTarget.style.boxShadow="0 8px 24px rgba(4,120,87,0.1)"; }}
+                        onMouseLeave={e=>{ e.currentTarget.style.transform="none"; e.currentTarget.style.boxShadow="none"; }}>
+                        {/* Art */}
+                        <div style={{ position:"relative", aspectRatio:"1/1", background:"rgba(4,120,87,0.06)", display:"flex", alignItems:"center", justifyContent:"center", overflow:"hidden" }}>
+                          <PhotoUploader photoKey={`devotional-${d.id}`} size={200} shape="square" />
+                          <div style={{ position:"absolute", top:10, left:10 }}>
+                            <span style={{ fontSize:9, background:"rgba(4,120,87,0.85)", color:"#fff", borderRadius:4, padding:"2px 7px", fontWeight:700 }}>RELEASED</span>
+                          </div>
+                        </div>
+                        {/* Body */}
+                        <div style={{ padding:"14px", flex:1, display:"flex", flexDirection:"column", gap:5 }}>
+                          <div style={{ fontSize:14, fontWeight:800, color:"#1A1A1A" }}>{d.name}</div>
+                          <div style={{ fontSize:11, color:"#6B7280" }}>{d.trackCategory||d.religion||"—"} · {d.language||"—"}</div>
+                          <div style={{ fontSize:11, color:"#6B7280" }}>{d.genre||d.type||"—"}</div>
+                          <div style={{ fontSize:11, color:"#047857", fontWeight:600 }}>Released {d.releaseDate}</div>
+                          <div style={{ display:"flex", gap:6, marginTop:"auto", paddingTop:8, flexWrap:"wrap" }}>
+                            {d.dspLink && <a href={d.dspLink} target="_blank" rel="noreferrer" style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(4,120,87,0.1)", border:"1px solid rgba(4,120,87,0.25)", borderRadius:7, color:"#047857", fontSize:10, fontWeight:700, padding:"6px 8px", textDecoration:"none" }}>Spotify / DSP</a>}
+                            {d.ytLink && <a href={d.ytLink} target="_blank" rel="noreferrer" style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(220,38,38,0.08)", border:"1px solid rgba(220,38,38,0.2)", borderRadius:7, color:"#DC2626", fontSize:10, fontWeight:700, padding:"6px 8px", textDecoration:"none" }}>YouTube</a>}
+                            {canEdit && <button onClick={()=>open("devotional",{...d},realIdx)} style={{ background:"rgba(0,0,0,0.03)", border:"1px solid #E5E7EB", borderRadius:7, color:"#6B7280", fontSize:11, padding:"5px 8px", cursor:"pointer" }}>✏️</button>}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           )}
 
           {/* ── PRODUCTION sub-section ── */}

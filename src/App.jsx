@@ -3209,6 +3209,7 @@ function OriginalsSection({ data, canEdit, onUpdate, period, ytApiKey, airtableC
   const [flagQ, setFlagQ] = useState("");
   const [flagSort, setFlagSort] = useState("title-asc");
   const [flagFilter, setFlagFilter] = useState("all");
+  const [toSubSection, setToSubSection] = useState("Submissions");
   const [tsSubmissions, setTsSubmissions] = useState([]);
   const [tsLoading, setTsLoading] = useState(false);
   const [tsError, setTsError] = useState("");
@@ -3694,301 +3695,263 @@ function OriginalsSection({ data, canEdit, onUpdate, period, ytApiKey, airtableC
         </div>
       )}
       <DeleteConfirmModal />
-      {tab==="Devotional" && (
+            {tab==="Teacher Originals" && (
         <>
-          {/* Devotional CSV Import Modal */}
+          {/* CSV Import Modal */}
           {showDevImport && (
             <DevotionalCSVImporter
               existing={devotional}
               onClose={()=>setShowDevImport(false)}
-              onImport={(updated)=>{
-                onUpdate({...data, devotional: updated});
-                setShowDevImport(false);
-              }}
+              onImport={(updated)=>{ onUpdate({...data, devotional:updated}); setShowDevImport(false); }}
             />
           )}
 
-          {/* Stats */}
-          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
-            <div style={{ display:"flex", gap:10 }}>
-              {[["Total",devotional.length,"#1A1A1A"],["Scratch Rcvd",devScratch,C.gold],["In Prod",devInProd,C.teal],["Released",devReleased,devReleased===0?C.red:C.green]].map(([l,v,c])=>(
-                <div key={l} style={{ background:"rgba(0,0,0,0.02)", backdropFilter:"blur(12px)", border:"1px solid rgba(0,0,0,0.04)", borderRadius:12, padding:"10px 16px", textAlign:"center" }}>
-                  <div style={{ fontFamily:"monospace", fontSize:20, fontWeight:800, color:c }}>{v}</div>
-                  <div style={{ fontSize:10, color:"#6B7280" }}>{l}</div>
+          {/* Combined header + KPIs */}
+          <div style={{ marginBottom:20 }}>
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(6,1fr)", gap:10, marginBottom:14 }}>
+              {[
+                ["Submissions",    tsSubmissions.length,                                                                   "#1A1A1A"],
+                ["In Pipeline",    tsSubmissions.filter(s=>(s.status||"Submitted")!=="Submitted"&&(s.status||"")!=="Rejected").length, C.teal],
+                ["In Production",  devInProd,                                                                              C.gold],
+                ["Scratch Rcvd",   devScratch,                                                                             "#B45309"],
+                ["Released",       devReleased,                                                                            devReleased===0?C.red:C.green],
+                ["Live on DSPs",   tsSubmissions.filter(s=>s.status==="Live").length,                                      C.green],
+              ].map(([l,v,c])=>(
+                <div key={l} style={{ background:"rgba(0,0,0,0.02)", border:"1px solid rgba(0,0,0,0.04)", borderRadius:12, padding:"10px 14px", textAlign:"center" }}>
+                  <div style={{ fontFamily:"monospace", fontSize:18, fontWeight:800, color:c }}>{v}</div>
+                  <div style={{ fontSize:10, color:"#6B7280", marginTop:2 }}>{l}</div>
                 </div>
               ))}
             </div>
-            <div style={{ display:"flex", gap:8 }}>
-              <Btn v="ghost" sm onClick={()=>setShowDevImport(true)}>⬆ Import from CSV</Btn>
-              <Btn v="ghost" sm onClick={()=>exportCSV(devotional,"devotional.csv")}>⬇ Export CSV</Btn>
-            </div>
-          </div>
-          {devReleased===0 && (
-            <div style={{ padding:"10px 14px", background:"rgba(201,123,90,0.1)", border:`1px solid ${C.red}40`, borderRadius:8, marginBottom:14, fontSize:12, color:C.red, fontWeight:600 }}>
-              ⚠ 0 releases so far — push one out now to build teacher momentum
-            </div>
-          )}
 
-          {/* Search + Sort + Filter + View toggle toolbar */}
-          <div style={{ display:"flex", gap:8, marginBottom:12, flexWrap:"wrap", alignItems:"center" }}>
-            <SearchBar q={devQ} setQ={setDevQ} placeholder="Search by name, religion, type…" compact />
-            <select value={devSort} onChange={e=>setDevSort(e.target.value)} style={{ background:"#F9FAFB", border:"1px solid #E5E7EB", borderRadius:7, padding:"5px 10px", color:"#374151", fontSize:11, fontFamily:"inherit", outline:"none" }}>
-              <option value="name-asc">Name A→Z</option>
-              <option value="name-desc">Name Z→A</option>
-              <option value="scratchDate-desc">Scratch date (newest)</option>
-              <option value="scratchDate-asc">Scratch date (oldest)</option>
-              <option value="religion-asc">Religion A→Z</option>
-              <option value="language-asc">Language A→Z</option>
-            </select>
-            <select value={devFilter} onChange={e=>setDevFilter(e.target.value)} style={{ background:"#F9FAFB", border:"1px solid #E5E7EB", borderRadius:7, padding:"5px 10px", color:"#374151", fontSize:11, fontFamily:"inherit", outline:"none" }}>
-              <option value="all">All</option>
-              <option value="scratch-received">Scratch Received</option>
-              <option value="final-received">Final Received</option>
-              <option value="in-progress">In Production</option>
-              <option value="released">Released</option>
-              <option value="not-yet">Not Started</option>
-            </select>
-            {/* Custom column filters */}
-            {devCustomCols.filter(c=>c.filterOptions?.length>0).map(col=>(
-              <select key={col.key}
-                value={devColFilters[col.key]||""}
-                onChange={e=>setDevColFilters(p=>({...p,[col.key]:e.target.value}))}
-                style={{ background:"#F9FAFB", border:`1px solid ${devColFilters[col.key]?"#9D174D":"#E5E7EB"}`, borderRadius:7, padding:"5px 10px", color:"#374151", fontSize:11, fontFamily:"inherit", outline:"none" }}>
-                <option value="">{col.label}: All</option>
-                {col.filterOptions.map(o=><option key={o} value={o}>{o}</option>)}
-              </select>
-            ))}
-            {/* View toggle + Column manager */}
-            <div style={{ marginLeft:"auto", display:"flex", gap:6 }}>
-              <button onClick={()=>setShowColManager(true)} title="Manage columns"
-                style={{ background:"#F9FAFB", border:"1px solid #E5E7EB", borderRadius:7, padding:"5px 10px", color:"#6B7280", fontSize:11, fontWeight:600, cursor:"pointer", fontFamily:"inherit" }}>
-                ⚙ Columns
-              </button>
-              <button onClick={()=>setDevView("grid")} title="Card view"
-                style={{ background:devView!=="list"?"rgba(157,23,77,0.12)":"#F9FAFB", border:`1px solid ${devView!=="list"?"rgba(157,23,77,0.35)":"#E5E7EB"}`, borderRadius:7, padding:"5px 9px", color:devView!=="list"?C.red:"#6B7280", fontSize:13, cursor:"pointer" }}>▦</button>
-              <button onClick={()=>setDevView("list")} title="Table view"
-                style={{ background:devView==="list"?"rgba(157,23,77,0.12)":"#F9FAFB", border:`1px solid ${devView==="list"?"rgba(157,23,77,0.35)":"#E5E7EB"}`, borderRadius:7, padding:"5px 9px", color:devView==="list"?C.red:"#6B7280", fontSize:13, cursor:"pointer" }}>☰</button>
+            {/* Sub-section toggle */}
+            <div style={{ display:"flex", gap:0, background:"#F3F4F6", borderRadius:10, padding:3, width:"fit-content" }}>
+              {["Submissions","Production"].map(sec=>(
+                <button key={sec} onClick={()=>setToSubSection(sec)}
+                  style={{ padding:"7px 20px", borderRadius:8, border:"none", fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"inherit",
+                    background: toSubSection===sec?"#fff":"transparent",
+                    color: toSubSection===sec?"#9D174D":"#6B7280",
+                    boxShadow: toSubSection===sec?"0 1px 4px rgba(0,0,0,0.1)":"none",
+                    transition:"all 0.15s" }}>
+                  {sec==="Submissions" ? `Submissions (${tsSubmissions.length})` : `Production (${devotional.length})`}
+                </button>
+              ))}
             </div>
           </div>
 
-          {/* Column manager modal */}
-          {showColManager && (
-            <DevColManager
-              cols={devCustomCols}
-              onSave={cols=>{ setDevCustomCols(cols); try{localStorage.setItem("artium-dev-cols",JSON.stringify(cols));}catch{} setShowColManager(false); }}
-              onClose={()=>setShowColManager(false)}
+          {/* ── SUBMISSIONS sub-section ── */}
+          {toSubSection==="Submissions" && (
+            <TeacherSeriesTab
+              submissions={tsSubmissions}
+              loading={tsLoading}
+              error={tsError}
+              accessToken={accessToken}
+              onLoad={()=>loadTsSubmissions(accessToken)}
+              onStatusChange={(rowIndex, status)=>updateTsStatus(rowIndex, status, accessToken)}
+              tsQ={tsQ} setTsQ={setTsQ}
+              tsSortField={tsSortField} setTsSortField={setTsSortField}
+              tsSortDir={tsSortDir} setTsSortDir={setTsSortDir}
+              TS_STAGES={TS_STAGES} TS_STAGE_COLORS={TS_STAGE_COLORS}
+              TS_FORM_URL={TS_FORM_URL} TS_SHEET_URL={TS_SHEET_URL}
+              canEdit={canEdit}
+              onNavigateDevotional={()=>setToSubSection("Production")}
+              hideHeader={true}
             />
           )}
 
-          {/* Build filtered/sorted rows */}
-          {(()=>{
-            let rows = devQ.length<2 ? [...devotional] : devotional.filter(d=>`${d.name} ${d.religion} ${d.type} ${d.deity} ${d.phone||""} ${d.language||""}`.toLowerCase().includes(devQ.toLowerCase()));
-            if(devFilter==="scratch-received") rows=rows.filter(d=>d.scratchStatus==="received");
-            else if(devFilter==="final-received") rows=rows.filter(d=>d.finalStatus==="received");
-            else if(devFilter==="in-progress") rows=rows.filter(d=>d.prodStatus==="in progress");
-            else if(devFilter==="released") rows=rows.filter(d=>d.releaseDate);
-            else if(devFilter==="not-yet") rows=rows.filter(d=>d.scratchStatus!=="received"&&!d.releaseDate);
-            // Custom column filters
-            Object.entries(devColFilters).forEach(([key, val]) => {
-              if (val) rows = rows.filter(d => (d[key]||"") === val);
-            });
-            const [sf,sd]=devSort.split("-");
-            rows.sort((a,b)=>{ let av=a[sf]||"",bv=b[sf]||""; return sd==="asc"?String(av).localeCompare(String(bv)):String(bv).localeCompare(String(av)); });
+          {/* ── PRODUCTION sub-section ── */}
+          {toSubSection==="Production" && (
+            <>
+              {devReleased===0 && (
+                <div style={{ padding:"10px 14px", background:"rgba(201,123,90,0.1)", border:`1px solid ${C.red}40`, borderRadius:8, marginBottom:14, fontSize:12, color:C.red, fontWeight:600 }}>
+                  0 releases so far — push one out now to build teacher momentum
+                </div>
+              )}
 
-            // ── CARD VIEW ──────────────────────────────────────────────
-            if (devView !== "list") return (
-              <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))", gap:18 }}>
-                {rows.map(d => {
-                  const realIdx = devotional.findIndex(x=>x.id===d.id);
-                  const statusColor = d.releaseDate ? C.green : d.prodStatus==="in progress" ? C.gold : d.scratchStatus==="received" ? C.teal : "#6B7280";
-                  const statusLabel = d.releaseDate ? "released" : d.prodStatus==="in progress" ? "in prod" : d.scratchStatus==="received" ? "scratch rcvd" : "not started";
-                  return (
-                    <div key={d.id}
-                      style={{ background:"rgba(255,255,255,0.75)", border:"1px solid #E5E7EB", borderRadius:16, overflow:"hidden", display:"flex", flexDirection:"column", transition:"all 0.2s" }}
-                      onMouseEnter={e=>{ e.currentTarget.style.border="1px solid rgba(157,23,77,0.3)"; e.currentTarget.style.transform="translateY(-2px)"; e.currentTarget.style.boxShadow="0 8px 24px rgba(0,0,0,0.1)"; }}
-                      onMouseLeave={e=>{ e.currentTarget.style.border="1px solid #E5E7EB"; e.currentTarget.style.transform="none"; e.currentTarget.style.boxShadow="none"; }}>
-
-                      {/* Art / avatar area */}
-                      <div style={{ position:"relative", aspectRatio:"1/1", background:"rgba(157,23,77,0.04)", display:"flex", alignItems:"center", justifyContent:"center", overflow:"hidden" }}>
-                        <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center" }}>
-                          <PhotoUploader photoKey={`devotional-card-${d.id}`} size={200} shape="square" />
-                        </div>
-                        {/* Religion tag top-left */}
-                        {d.religion && (
-                          <div style={{ position:"absolute", top:8, left:8, background:"rgba(0,0,0,0.55)", backdropFilter:"blur(6px)", borderRadius:6, padding:"2px 8px", fontSize:9, fontWeight:700, color:"rgba(255,255,255,0.85)", letterSpacing:"0.05em" }}>
-                            {d.religion}{d.deity ? ` · ${d.deity}` : ""}
-                          </div>
-                        )}
-                        {/* Progress bar at bottom */}
-                        <div style={{ position:"absolute", bottom:0, left:0, right:0, height:3, background:"rgba(0,0,0,0.15)" }}>
-                          <div style={{ width: d.releaseDate?"100%": d.prodStatus==="in progress"?"66%": d.scratchStatus==="received"?"33%":"0%", height:"100%", background:statusColor, borderRadius:99, transition:"width 0.4s" }}/>
-                        </div>
-                      </div>
-
-                      {/* Card body */}
-                      <div style={{ padding:"14px 14px 12px", flex:1, display:"flex", flexDirection:"column", gap:5 }}>
-                        {/* Name + status */}
-                        <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:6 }}>
-                          <div style={{ fontSize:14, fontWeight:700, color:"#1A1A1A", fontFamily:"'Playfair Display',serif", lineHeight:1.3, flex:1 }}>{d.name}</div>
-                          <span style={{ fontSize:9, fontWeight:700, padding:"2px 7px", borderRadius:99, flexShrink:0, whiteSpace:"nowrap",
-                            background:`${statusColor}15`, color:statusColor, border:`1px solid ${statusColor}40` }}>
-                            {statusLabel}
-                          </span>
-                        </div>
-                        {/* Type */}
-                        {d.type && <div style={{ fontSize:11, color:"#6B7280" }}>{d.type}</div>}
-                        {/* Release date */}
-                        {d.releaseDate && <div style={{ fontSize:10, color:C.green, fontWeight:600 }}>✓ Released {d.releaseDate}</div>}
-                        {/* Scratch date */}
-                        {!d.releaseDate && d.scratchDate && <div style={{ fontSize:10, color:C.gold, fontWeight:600 }}>Scratch: {d.scratchDate}</div>}
-                        {/* Notes */}
-                        {d.notes && <div style={{ fontSize:10, color:"#9CA3AF", lineHeight:1.4, marginTop:2 }}>{d.notes}</div>}
-
-                        {/* Links row */}
-                        {(d.ytLink || d.dspLink || d.finalTrackLink) && (
-                          <div style={{ display:"flex", gap:6, marginTop:2, flexWrap:"wrap" }}>
-                            {d.ytLink && <a href={d.ytLink} target="_blank" rel="noreferrer" style={{ fontSize:10, color:"#DC2626", fontWeight:700 }}>▶ YT</a>}
-                            {d.dspLink && <a href={d.dspLink} target="_blank" rel="noreferrer" style={{ fontSize:10, color:C.green, fontWeight:700 }}>🎧 DSP</a>}
-                            {d.finalTrackLink && <a href={d.finalTrackLink} target="_blank" rel="noreferrer" style={{ fontSize:10, color:C.teal, fontWeight:700 }}>🎵 Track</a>}
-                          </div>
-                        )}
-
-                        {/* Edit button */}
-                        {canEdit && (
-                          <div style={{ display:"flex", gap:6, marginTop:"auto", paddingTop:8 }}>
-                            <button onClick={()=>open("devotional",{...d},realIdx)}
-                              style={{ flex:1, background:"rgba(157,23,77,0.06)", border:"1px solid rgba(157,23,77,0.15)", borderRadius:7, color:C.red, fontSize:10, fontWeight:700, padding:"5px 8px", cursor:"pointer", fontFamily:"inherit" }}>
-                              ✏️ Edit
-                            </button>
-                            <button onClick={()=>delDevotional(realIdx)}
-                              style={{ background:"rgba(220,38,38,0.06)", border:"1px solid rgba(220,38,38,0.15)", borderRadius:7, color:"#DC2626", fontSize:10, padding:"5px 8px", cursor:"pointer" }}>🗑</button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-                {rows.length === 0 && (
-                  <div style={{ gridColumn:"1/-1", textAlign:"center", padding:40, color:"#6B7280", fontSize:13 }}>
-                    No tracks match this filter.
-                  </div>
-                )}
+              {/* Toolbar */}
+              <div style={{ display:"flex", gap:8, marginBottom:12, flexWrap:"wrap", alignItems:"center" }}>
+                <SearchBar q={devQ} setQ={setDevQ} placeholder="Search by name, religion, type…" compact />
+                <select value={devSort} onChange={e=>setDevSort(e.target.value)} style={{ background:"#F9FAFB", border:"1px solid #E5E7EB", borderRadius:7, padding:"5px 10px", color:"#374151", fontSize:11, fontFamily:"inherit", outline:"none" }}>
+                  <option value="name-asc">Name A→Z</option>
+                  <option value="name-desc">Name Z→A</option>
+                  <option value="scratchDate-desc">Scratch date (newest)</option>
+                  <option value="scratchDate-asc">Scratch date (oldest)</option>
+                  <option value="religion-asc">Religion A→Z</option>
+                  <option value="language-asc">Language A→Z</option>
+                </select>
+                <select value={devFilter} onChange={e=>setDevFilter(e.target.value)} style={{ background:"#F9FAFB", border:"1px solid #E5E7EB", borderRadius:7, padding:"5px 10px", color:"#374151", fontSize:11, fontFamily:"inherit", outline:"none" }}>
+                  <option value="all">All</option>
+                  <option value="scratch-received">Scratch Received</option>
+                  <option value="final-received">Final Received</option>
+                  <option value="in-progress">In Production</option>
+                  <option value="released">Released</option>
+                  <option value="not-yet">Not Started</option>
+                </select>
+                {devCustomCols.filter(c=>c.filterOptions?.length>0).map(col=>(
+                  <select key={col.key} value={devColFilters[col.key]||""}
+                    onChange={e=>setDevColFilters(p=>({...p,[col.key]:e.target.value}))}
+                    style={{ background:"#F9FAFB", border:`1px solid ${devColFilters[col.key]?"#9D174D":"#E5E7EB"}`, borderRadius:7, padding:"5px 10px", color:"#374151", fontSize:11, fontFamily:"inherit", outline:"none" }}>
+                    <option value="">{col.label}: All</option>
+                    {col.filterOptions.map(o=><option key={o} value={o}>{o}</option>)}
+                  </select>
+                ))}
+                <div style={{ marginLeft:"auto", display:"flex", gap:6 }}>
+                  <Btn v="ghost" sm onClick={()=>setShowDevImport(true)}>⬆ Import CSV</Btn>
+                  <Btn v="ghost" sm onClick={()=>exportCSV(devotional,"devotional.csv")}>⬇ Export CSV</Btn>
+                  <button onClick={()=>setShowColManager(true)} style={{ background:"#F9FAFB", border:"1px solid #E5E7EB", borderRadius:7, padding:"5px 10px", color:"#6B7280", fontSize:11, fontWeight:600, cursor:"pointer", fontFamily:"inherit" }}>⚙ Columns</button>
+                  <button onClick={()=>setDevView("grid")} style={{ background:devView!=="list"?"rgba(157,23,77,0.12)":"#F9FAFB", border:`1px solid ${devView!=="list"?"rgba(157,23,77,0.35)":"#E5E7EB"}`, borderRadius:7, padding:"5px 9px", color:devView!=="list"?C.red:"#6B7280", fontSize:13, cursor:"pointer" }}>▦</button>
+                  <button onClick={()=>setDevView("list")} style={{ background:devView==="list"?"rgba(157,23,77,0.12)":"#F9FAFB", border:`1px solid ${devView==="list"?"rgba(157,23,77,0.35)":"#E5E7EB"}`, borderRadius:7, padding:"5px 9px", color:devView==="list"?C.red:"#6B7280", fontSize:13, cursor:"pointer" }}>☰</button>
+                </div>
               </div>
-            );
 
-            // ── TABLE VIEW ─────────────────────────────────────────────
-            return (
-          <div style={{ overflowX:"auto" }}>
-            <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
-              <thead>
-                <tr style={{ borderBottom:"1px solid #E5E7EB" }}>
-                  {["Teacher","Phone","Religion","Language","Type","Scratch","Final Track","Prod","Release Date","Links","Notes",
-                    ...devCustomCols.map(c=>c.label),""].map(h=>(
-                    <th key={h} style={{ textAlign:"left", padding:"7px 10px", fontSize:10, fontWeight:700, color:"#6B7280", textTransform:"uppercase", letterSpacing:"0.05em", whiteSpace:"nowrap" }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((d,i)=>{
-                    const realIdx = devotional.findIndex(x=>x.id===d.id);
-                    return (
-                      <tr key={d.id} style={{ borderBottom:"1px solid rgba(0,0,0,0.03)", transition:"background 0.15s" }} onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,0.02)"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-                        <td style={{ padding:"8px 10px" }}>
-                          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                            <PhotoUploader photoKey={`devotional-${d.id}`} size={28} shape="circle" />
-                            <div>
-                              <div style={{ fontWeight:700, color:"#1A1A1A", whiteSpace:"nowrap" }}>{d.name}</div>
-                              {d.deity&&<div style={{ fontSize:10, color:"#6B7280" }}>{d.deity}</div>}
+              {/* Column manager modal */}
+              {showColManager && (
+                <DevColManager
+                  cols={devCustomCols}
+                  onSave={cols=>{ setDevCustomCols(cols); try{localStorage.setItem("artium-dev-cols",JSON.stringify(cols));}catch{} setShowColManager(false); }}
+                  onClose={()=>setShowColManager(false)}
+                />
+              )}
+
+              {/* Add teacher track button */}
+              {canEdit && (
+                <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:10 }}>
+                  <Btn onClick={()=>open("devotional",{name:"",phone:"",religion:"",deity:"",type:"",scratchStatus:"not yet",scratchDate:"",finalStatus:"not yet",finalDate:"",prodStatus:"pending",releaseDate:"",finalTrackLink:"",ytLink:"",dspLink:"",albumArtStatus:"",notes:""})}>
+                    + Add Teacher Track
+                  </Btn>
+                </div>
+              )}
+
+              {/* Production table/grid — reuse existing devotional render */}
+              {(()=>{
+                let rows = devQ.length<2 ? [...devotional] : devotional.filter(d=>`${d.name} ${d.religion} ${d.type} ${d.deity} ${d.phone||""} ${d.language||""}`.toLowerCase().includes(devQ.toLowerCase()));
+                if(devFilter==="scratch-received") rows=rows.filter(d=>d.scratchStatus==="received");
+                if(devFilter==="final-received")   rows=rows.filter(d=>d.finalStatus==="received");
+                if(devFilter==="in-progress")       rows=rows.filter(d=>d.prodStatus==="in progress");
+                if(devFilter==="released")          rows=rows.filter(d=>d.releaseDate);
+                if(devFilter==="not-yet")           rows=rows.filter(d=>d.scratchStatus!=="received"&&d.finalStatus!=="received");
+                Object.entries(devColFilters).forEach(([k,v])=>{ if(v) rows=rows.filter(d=>(d[k]||"")=== v); });
+                if(devSort==="name-asc")           rows.sort((a,b)=>(a.name||"").localeCompare(b.name||""));
+                if(devSort==="name-desc")          rows.sort((a,b)=>(b.name||"").localeCompare(a.name||""));
+                if(devSort==="scratchDate-desc")   rows.sort((a,b)=>new Date(b.scratchDate||0)-new Date(a.scratchDate||0));
+                if(devSort==="scratchDate-asc")    rows.sort((a,b)=>new Date(a.scratchDate||0)-new Date(b.scratchDate||0));
+                if(devSort==="religion-asc")       rows.sort((a,b)=>(a.religion||"").localeCompare(b.religion||""));
+                if(devSort==="language-asc")       rows.sort((a,b)=>(a.language||"").localeCompare(b.language||""));
+
+                if(devView !== "list") return (
+                  <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))", gap:14 }}>
+                    {rows.length===0 && <div style={{ gridColumn:"1/-1", fontSize:13, color:"#6B7280", padding:"20px 0" }}>No tracks match this filter.</div>}
+                    {rows.map((d,i)=>{
+                      const realIdx = devotional.findIndex(x=>x.id===d.id);
+                      return (
+                        <div key={d.id||i} style={{ background:"rgba(255,255,255,0.78)", border:"1px solid #E5E7EB", borderRadius:14, overflow:"hidden", display:"flex", flexDirection:"column", transition:"all 0.2s" }}
+                          onMouseEnter={e=>{ e.currentTarget.style.borderColor="rgba(157,23,77,0.3)"; e.currentTarget.style.transform="translateY(-2px)"; e.currentTarget.style.boxShadow="0 6px 20px rgba(0,0,0,0.07)"; }}
+                          onMouseLeave={e=>{ e.currentTarget.style.borderColor="#E5E7EB"; e.currentTarget.style.transform="none"; e.currentTarget.style.boxShadow="none"; }}>
+                          <div style={{ position:"relative", aspectRatio:"1/1", background:"rgba(0,0,0,0.03)", display:"flex", alignItems:"center", justifyContent:"center" }}>
+                            <PhotoUploader photoKey={`devotional-${d.id}`} size={200} shape="square" />
+                          </div>
+                          <div style={{ padding:"12px 14px", flex:1, display:"flex", flexDirection:"column", gap:5 }}>
+                            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:6 }}>
+                              <div style={{ fontSize:13, fontWeight:700, color:"#1A1A1A", flex:1, overflow:"hidden", display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical" }}>{d.name}</div>
+                              <Chip status={d.prodStatus==="in progress"?"in progress":d.releaseDate?"done":"pending"} label={d.releaseDate?"Released":d.prodStatus==="in progress"?"In Prod":"Pending"} />
+                            </div>
+                            <div style={{ fontSize:11, color:"#6B7280" }}>{d.religion||"—"}{d.deity?` · ${d.deity}`:""}</div>
+                            <div style={{ fontSize:11, color:"#6B7280" }}>{d.language||""}{d.type?` · ${d.type}`:""}</div>
+                            <div style={{ display:"flex", gap:5, marginTop:"auto", paddingTop:8 }}>
+                              {d.finalTrackLink&&<a href={d.finalTrackLink} target="_blank" rel="noreferrer" style={{ fontSize:10, color:C.teal, fontWeight:700, textDecoration:"none" }}>Track</a>}
+                              {d.ytLink&&<a href={d.ytLink} target="_blank" rel="noreferrer" style={{ fontSize:10, color:"#DC2626", fontWeight:700, textDecoration:"none" }}>YT</a>}
+                              {canEdit && <button onClick={()=>open("devotional",{...d},realIdx)} style={{ marginLeft:"auto", background:"rgba(0,0,0,0.03)", border:"1px solid #E5E7EB", borderRadius:6, color:"#6B7280", fontSize:11, padding:"4px 8px", cursor:"pointer" }}>✏️</button>}
                             </div>
                           </div>
-                        </td>
-                        <td style={{ padding:"9px 12px", color:"#6B7280" }}>{d.phone||"—"}</td>
-                        <td style={{ padding:"9px 12px", color:"#374151" }}>{d.religion||"—"}</td>
-                        <td style={{ padding:"9px 12px", color:"#374151" }}>{d.language||"—"}</td>
-                        <td style={{ padding:"9px 12px", color:"#374151" }}>{d.type||"—"}</td>
-                        <td style={{ padding:"9px 10px" }}>
-                          <Chip status={d.scratchStatus==="received"?"done":"pending"} label={d.scratchStatus==="received"?"✓ Rcvd":"Not Yet"} />
-                          {d.scratchDate&&<div style={{ fontSize:9, color:"#6B7280", marginTop:2 }}>{d.scratchDate}</div>}
-                        </td>
-                        <td style={{ padding:"9px 10px" }}>
-                          <Chip status={d.finalStatus==="received"?"done":"pending"} label={d.finalStatus==="received"?"✓ Rcvd":"Not Yet"} />
-                          <LastUpdatedBadge dateStr={d.updatedAt} warnAfterDays={30} style={{ fontSize:9 }} />
-                          {d.finalDate&&<div style={{ fontSize:9, color:"#6B7280", marginTop:2 }}>{d.finalDate}</div>}
-                        </td>
-                        <td style={{ padding:"9px 10px" }}>
-                          <Chip status={d.prodStatus==="in progress"?"in progress":d.prodStatus==="done"?"done":"pending"} />
-                          {d.albumArtStatus&&<div style={{ fontSize:9, color:"#6B7280", marginTop:2 }}>Art: {d.albumArtStatus}</div>}
-                        </td>
-                        <td style={{ padding:"9px 10px" }}>
-                          {d.releaseDate
-                            ? <span style={{ color:C.green, fontWeight:700, fontSize:11 }}>✓ {d.releaseDate}</span>
-                            : <span style={{ color:"#6B7280" }}>—</span>}
-                        </td>
-                        <td style={{ padding:"9px 10px" }}>
-                          <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
-                            {d.finalTrackLink&&<a href={d.finalTrackLink} target="_blank" rel="noreferrer" style={{ fontSize:10, color:C.teal, fontWeight:700, whiteSpace:"nowrap" }}>🎵 Track</a>}
-                            {d.ytLink&&<a href={d.ytLink} target="_blank" rel="noreferrer" style={{ fontSize:10, color:"#DC2626", fontWeight:700, whiteSpace:"nowrap" }}>▶ YouTube</a>}
-                            {d.dspLink&&<a href={d.dspLink} target="_blank" rel="noreferrer" style={{ fontSize:10, color:C.green, fontWeight:700, whiteSpace:"nowrap" }}>🎧 DSP</a>}
-                            {!d.finalTrackLink&&!d.ytLink&&!d.dspLink&&<span style={{ color:"#6B7280" }}>—</span>}
-                          </div>
-                        </td>
-                        <td style={{ padding:"9px 12px", color:"#6B7280", maxWidth:160 }}>{d.notes||"—"}</td>
-                        {/* Custom columns */}
-                        {devCustomCols.map(col=>(
-                          <td key={col.key} style={{ padding:"9px 12px", color:"#374151" }}>
-                            {canEdit ? (
-                              <input
-                                defaultValue={d[col.key]||""}
-                                onBlur={e=>{
-                                  const val = e.target.value;
-                                  const updated = devotional.map((x,xi)=>xi===realIdx?{...x,[col.key]:val}:x);
-                                  onUpdate({...data, devotional:updated});
-                                }}
-                                style={{ width:"100%", minWidth:80, border:"1px solid transparent", borderRadius:5,
-                                  background:"transparent", fontSize:11, fontFamily:"inherit", padding:"2px 4px",
-                                  outline:"none", color:"#374151" }}
-                                onFocus={e=>{e.target.style.borderColor="#9D174D";e.target.style.background="#FFF";}}
-                                onBlur2={e=>{e.target.style.borderColor="transparent";e.target.style.background="transparent";}}
-                              />
-                            ) : (d[col.key]||"—")}
-                          </td>
-                        ))}
-                        {canEdit && (
-                          <td style={{ padding:"9px 10px" }}>
-                            <div style={{ display:"flex", gap:4 }}>
-                              <Btn v="ghost" sm onClick={()=>open("devotional",{...d},realIdx)}>✏️</Btn>
-                              <Btn v="danger" sm onClick={()=>delDevotional(realIdx)}>🗑</Btn>
-                            </div>
-                          </td>
-                        )}
-                      </tr>
-                    );
-                  })}
-              </tbody>
-            </table>
-          </div>
-            );
-          })()}
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+
+                return (
+                  <div style={{ overflowX:"auto" }}>
+                    <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
+                      <thead>
+                        <tr style={{ borderBottom:"1px solid #E5E7EB" }}>
+                          {["Teacher","Phone","Religion","Language","Type","Scratch","Final Track","Prod","Release Date","Links","Notes",...devCustomCols.map(c=>c.label),""].map(h=>(
+                            <th key={h} style={{ textAlign:"left", padding:"7px 10px", fontSize:10, fontWeight:700, color:"#6B7280", textTransform:"uppercase", letterSpacing:"0.05em", whiteSpace:"nowrap" }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {rows.map((d,i)=>{
+                          const realIdx = devotional.findIndex(x=>x.id===d.id);
+                          return (
+                            <tr key={d.id} style={{ borderBottom:"1px solid rgba(0,0,0,0.03)" }}
+                              onMouseEnter={e=>e.currentTarget.style.background="rgba(0,0,0,0.01)"}
+                              onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                              <td style={{ padding:"8px 10px" }}>
+                                <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                                  <PhotoUploader photoKey={`devotional-${d.id}`} size={28} shape="circle" />
+                                  <div>
+                                    <div style={{ fontWeight:700, color:"#1A1A1A", whiteSpace:"nowrap" }}>{d.name}</div>
+                                    {d.deity&&<div style={{ fontSize:10, color:"#6B7280" }}>{d.deity}</div>}
+                                  </div>
+                                </div>
+                              </td>
+                              <td style={{ padding:"9px 12px", color:"#6B7280" }}>{d.phone||"—"}</td>
+                              <td style={{ padding:"9px 12px", color:"#374151" }}>{d.religion||"—"}</td>
+                              <td style={{ padding:"9px 12px", color:"#374151" }}>{d.language||"—"}</td>
+                              <td style={{ padding:"9px 12px", color:"#374151" }}>{d.type||"—"}</td>
+                              <td style={{ padding:"9px 10px" }}>
+                                <Chip status={d.scratchStatus==="received"?"done":"pending"} label={d.scratchStatus==="received"?"✓ Rcvd":"Not Yet"} />
+                                {d.scratchDate&&<div style={{ fontSize:9, color:"#6B7280", marginTop:2 }}>{d.scratchDate}</div>}
+                              </td>
+                              <td style={{ padding:"9px 10px" }}>
+                                <Chip status={d.finalStatus==="received"?"done":"pending"} label={d.finalStatus==="received"?"✓ Rcvd":"Not Yet"} />
+                                <LastUpdatedBadge dateStr={d.updatedAt} warnAfterDays={30} style={{ fontSize:9 }} />
+                              </td>
+                              <td style={{ padding:"9px 10px" }}>
+                                <Chip status={d.prodStatus==="in progress"?"in progress":d.prodStatus==="done"?"done":"pending"} />
+                                {d.albumArtStatus&&<div style={{ fontSize:9, color:"#6B7280", marginTop:2 }}>Art: {d.albumArtStatus}</div>}
+                              </td>
+                              <td style={{ padding:"9px 10px" }}>
+                                {d.releaseDate?<span style={{ color:C.green, fontWeight:700, fontSize:11 }}>✓ {d.releaseDate}</span>:<span style={{ color:"#6B7280" }}>—</span>}
+                              </td>
+                              <td style={{ padding:"9px 10px" }}>
+                                <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
+                                  {d.finalTrackLink&&<a href={d.finalTrackLink} target="_blank" rel="noreferrer" style={{ fontSize:10, color:C.teal, fontWeight:700, whiteSpace:"nowrap" }}>Track</a>}
+                                  {d.ytLink&&<a href={d.ytLink} target="_blank" rel="noreferrer" style={{ fontSize:10, color:"#DC2626", fontWeight:700 }}>YouTube</a>}
+                                  {d.dspLink&&<a href={d.dspLink} target="_blank" rel="noreferrer" style={{ fontSize:10, color:C.green, fontWeight:700 }}>DSP</a>}
+                                  {!d.finalTrackLink&&!d.ytLink&&!d.dspLink&&<span style={{ color:"#6B7280" }}>—</span>}
+                                </div>
+                              </td>
+                              <td style={{ padding:"9px 12px", color:"#6B7280", maxWidth:160 }}>{d.notes||"—"}</td>
+                              {devCustomCols.map(col=>(
+                                <td key={col.key} style={{ padding:"9px 12px", color:"#374151" }}>
+                                  {canEdit ? (
+                                    <input defaultValue={d[col.key]||""} onBlur={e=>{ const val=e.target.value; const updated=devotional.map((x,xi)=>xi===realIdx?{...x,[col.key]:val}:x); onUpdate({...data,devotional:updated}); }}
+                                      style={{ width:"100%", minWidth:80, border:"1px solid transparent", borderRadius:5, background:"transparent", fontSize:11, fontFamily:"inherit", padding:"2px 4px", outline:"none", color:"#374151" }}
+                                      onFocus={e=>{e.target.style.borderColor="#9D174D";e.target.style.background="#FFF";}}
+                                    />
+                                  ) : (d[col.key]||"—")}
+                                </td>
+                              ))}
+                              {canEdit && (
+                                <td style={{ padding:"9px 10px" }}>
+                                  <div style={{ display:"flex", gap:4 }}>
+                                    <Btn v="ghost" sm onClick={()=>open("devotional",{...d},realIdx)}>✏️</Btn>
+                                    <Btn v="danger" sm onClick={()=>delDevotional(realIdx)}>🗑</Btn>
+                                  </div>
+                                </td>
+                              )}
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                );
+              })()}
+            </>
+          )}
         </>
-      )}
-
-      {/* ── Teacher Series ── */}
-      {tab==="Teacher Series" && (
-        <TeacherSeriesTab
-          submissions={tsSubmissions}
-          loading={tsLoading}
-          error={tsError}
-          accessToken={accessToken}
-          onLoad={()=>loadTsSubmissions(accessToken)}
-          onStatusChange={(rowIndex, status)=>updateTsStatus(rowIndex, status, accessToken)}
-          tsQ={tsQ} setTsQ={setTsQ}
-          tsSortField={tsSortField} setTsSortField={setTsSortField}
-          tsSortDir={tsSortDir} setTsSortDir={setTsSortDir}
-          TS_STAGES={TS_STAGES} TS_STAGE_COLORS={TS_STAGE_COLORS}
-          TS_FORM_URL={TS_FORM_URL} TS_SHEET_URL={TS_SHEET_URL}
-          canEdit={canEdit}
-          onNavigateDevotional={()=>setTab("Devotional")}
-        />
       )}
 
       {/* Flagship form modal */}

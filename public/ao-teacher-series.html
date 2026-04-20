@@ -502,6 +502,14 @@ body::before {
             </div>
           </div>
 
+          <div class="cond-section" id="otherLanguageSection">
+            <div class="field" id="f-otherLanguage">
+              <label>Please specify the language <span class="req">*</span></label>
+              <input type="text" name="otherLanguage" placeholder="e.g. Bhojpuri, Odia, Assamese..." />
+              <div class="error-msg">Please specify the language</div>
+            </div>
+          </div>
+
           <div class="field" id="f-genre">
             <label>Genre <span class="req">*</span></label>
             <select name="genre" id="genreSelect"><option value="">Select track type first...</option></select>
@@ -764,6 +772,10 @@ function updateConditionals(){
     termsBox.style.display='block';
   }else{termsBox.style.display='none';}
 
+  // Other language field
+  const langSel = form.querySelector('[name="language"]');
+  document.getElementById('otherLanguageSection').classList.toggle('show', langSel && langSel.value === 'Other');
+
   document.getElementById('themeSection').classList.toggle('show',composition==='Traditional / public domain');
   document.getElementById('otherPerformersSection').classList.toggle('show',solePerformer==='No');
 
@@ -808,6 +820,9 @@ document.querySelectorAll('.radio-opt,.check-opt').forEach(lbl=>{
 
 form.querySelectorAll('input[type="radio"]').forEach(inp=>{inp.addEventListener('change',()=>syncStyles(inp.name));});
 
+// Language other field
+form.querySelector('[name="language"]').addEventListener('change', updateConditionals);
+
 form.querySelectorAll('input,select,textarea').forEach(el=>{
   el.addEventListener('input',()=>{const f=el.closest('.field');if(f)f.classList.remove('has-error');updateProgress();});
   el.addEventListener('change',()=>{const f=el.closest('.field');if(f)f.classList.remove('has-error');updateProgress();});
@@ -835,6 +850,8 @@ function validate(){
   // description is optional — no word count validation
 
   if(getRadio('composition')==='Traditional / public domain')req('f-themeSource','themeSource');
+  const langVal=(form.querySelector('[name="language"]')||{}).value||'';
+  if(langVal==='Other')req('f-otherLanguage','otherLanguage');
   if(getRadio('solePerformer')==='No')req('f-otherPerformers','otherPerformers');
   return ok;
 }

@@ -3750,7 +3750,7 @@ function OriginalsSection({ data, canEdit, onUpdate, period, ytApiKey, airtableC
                 ["In Pipeline",    tsSubmissions.filter(s=>(s.status||"Submitted")!=="Submitted"&&(s.status||"")!=="Rejected").length, C.teal],
                 ["In Production",  devInProd,                                                                              C.gold],
                 ["Scratch Rcvd",   devScratch,                                                                             "#B45309"],
-                ["Released",       devReleased,                                                                            devReleased===0?C.red:C.green],
+                ["Released",       devotional.filter(d=>d.releaseDate&&d.prodStatus==="done").length,                     devotional.filter(d=>d.releaseDate&&d.prodStatus==="done").length===0?C.red:C.green],
                 ["Live on DSPs",   tsSubmissions.filter(s=>s.status==="Live").length,                                      C.green],
               ].map(([l,v,c])=>(
                 <div key={l} style={{ background:"rgba(0,0,0,0.02)", border:"1px solid rgba(0,0,0,0.04)", borderRadius:12, padding:"10px 14px", textAlign:"center" }}>
@@ -3764,8 +3764,8 @@ function OriginalsSection({ data, canEdit, onUpdate, period, ytApiKey, airtableC
             <div style={{ display:"flex", gap:0, background:"#F3F4F6", borderRadius:10, padding:3, width:"fit-content" }}>
               {[
                 ["Submissions", `Submissions (${tsSubmissions.length})`],
-                ["Production",  `Production (${devotional.filter(d=>!d.releaseDate).length})`],
-                ["Released",    `Released (${devotional.filter(d=>d.releaseDate).length})`],
+                ["Production",  `Production (${devotional.filter(d=>!(d.releaseDate && d.prodStatus==="done")).length})`],
+                ["Released",    `Released (${devotional.filter(d=>d.releaseDate && d.prodStatus==="done").length})`],
               ].map(([sec, label])=>(
                 <button key={sec} onClick={()=>setToSubSection(sec)}
                   style={{ padding:"7px 18px", borderRadius:8, border:"none", fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"inherit",
@@ -3821,7 +3821,7 @@ function OriginalsSection({ data, canEdit, onUpdate, period, ytApiKey, airtableC
           {/* ── RELEASED sub-section ── */}
           {toSubSection==="Released" && (
             <div>
-              {devotional.filter(d=>d.releaseDate).length === 0 ? (
+              {devotional.filter(d=>d.releaseDate && d.prodStatus==="done").length === 0 ? (
                 <div style={{ textAlign:"center", padding:"40px 20px", color:"#6B7280" }}>
                   <div style={{ fontSize:32, marginBottom:12 }}>🎵</div>
                   <div style={{ fontSize:14, fontWeight:700, color:"#1A1A1A", marginBottom:6 }}>No released tracks yet</div>
@@ -3829,7 +3829,7 @@ function OriginalsSection({ data, canEdit, onUpdate, period, ytApiKey, airtableC
                 </div>
               ) : (
                 <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))", gap:16 }}>
-                  {devotional.filter(d=>d.releaseDate).map((d,i)=>{
+                  {devotional.filter(d=>d.releaseDate && d.prodStatus==="done").map((d,i)=>{
                     const realIdx = devotional.findIndex(x=>x.id===d.id);
                     return (
                       <div key={d.id||i} style={{ background:"rgba(255,255,255,0.78)", border:"1px solid rgba(4,120,87,0.2)", borderRadius:16, overflow:"hidden", display:"flex", flexDirection:"column", transition:"all 0.2s" }}
@@ -3927,7 +3927,7 @@ function OriginalsSection({ data, canEdit, onUpdate, period, ytApiKey, airtableC
 
               {/* Production table/grid — reuse existing devotional render */}
               {(()=>{
-                let rows = devQ.length<2 ? [...devotional] : devotional.filter(d=>`${d.name} ${d.religion} ${d.type} ${d.deity} ${d.phone||""} ${d.language||""}`.toLowerCase().includes(devQ.toLowerCase()));
+                let rows = (devQ.length<2 ? [...devotional] : devotional.filter(d=>`${d.name} ${d.religion} ${d.type} ${d.deity} ${d.phone||""} ${d.language||""}`.toLowerCase().includes(devQ.toLowerCase()))).filter(d=>!(d.releaseDate && d.prodStatus==="done"));
                 if(devFilter==="scratch-received") rows=rows.filter(d=>d.scratchStatus==="received");
                 if(devFilter==="final-received")   rows=rows.filter(d=>d.finalStatus==="received");
                 if(devFilter==="in-progress")       rows=rows.filter(d=>d.prodStatus==="in progress");
@@ -3960,9 +3960,13 @@ function OriginalsSection({ data, canEdit, onUpdate, period, ytApiKey, airtableC
                             </div>
                             <div style={{ fontSize:11, color:"#6B7280" }}>{d.trackCategory||d.religion||"—"}{d.deity?` · ${d.deity}`:""}</div>
                             <div style={{ fontSize:11, color:"#6B7280" }}>{d.language||""}{d.genre||d.type?` · ${d.genre||d.type}`:""}</div>
-                            <div style={{ display:"flex", gap:5, marginTop:"auto", paddingTop:8 }}>
+                            <div style={{ display:"flex", gap:5, marginTop:"auto", paddingTop:8, flexWrap:"wrap" }}>
                               {d.finalTrackLink&&<a href={d.finalTrackLink} target="_blank" rel="noreferrer" style={{ fontSize:10, color:C.teal, fontWeight:700, textDecoration:"none" }}>Track</a>}
                               {d.ytLink&&<a href={d.ytLink} target="_blank" rel="noreferrer" style={{ fontSize:10, color:"#DC2626", fontWeight:700, textDecoration:"none" }}>YT</a>}
+                              {canEdit && !d.releaseDate && <button onClick={()=>open("devotional",{...d, prodStatus:"done", releaseDate: new Date().toLocaleDateString("en-IN",{month:"short",year:"numeric"})},realIdx)}
+                                style={{ fontSize:9, background:"rgba(4,120,87,0.1)", border:"1px solid rgba(4,120,87,0.3)", borderRadius:5, color:"#047857", padding:"3px 7px", cursor:"pointer", fontFamily:"inherit", fontWeight:700 }}>
+                                Mark Released
+                              </button>}
                               {canEdit && <button onClick={()=>open("devotional",{...d},realIdx)} style={{ marginLeft:"auto", background:"rgba(0,0,0,0.03)", border:"1px solid #E5E7EB", borderRadius:6, color:"#6B7280", fontSize:11, padding:"4px 8px", cursor:"pointer" }}>✏️</button>}
                             </div>
                           </div>

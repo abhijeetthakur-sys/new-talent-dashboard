@@ -3960,7 +3960,7 @@ function OriginalsSection({ data, canEdit, onUpdate, period, ytApiKey, airtableC
                           <div style={{ padding:"12px 14px", flex:1, display:"flex", flexDirection:"column", gap:5 }}>
                             <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:6 }}>
                               <div style={{ fontSize:13, fontWeight:700, color:"#1A1A1A", flex:1, overflow:"hidden", display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical" }}>{d.name}</div>
-                              <Chip status={d.prodStatus==="in progress"?"in progress":d.releaseDate?"done":"pending"} label={d.releaseDate?"Released":d.prodStatus==="in progress"?"In Prod":"Pending"} />
+                              <Chip status={d.prodStatus==="done"?"done":d.prodStatus==="in progress"?"in progress":"pending"} label={d.prodStatus==="done"?"Released":d.prodStatus==="in progress"?"In Prod":"Pending"} />
                             </div>
                             <div style={{ fontSize:11, color:"#6B7280" }}>{d.trackCategory||d.religion||"—"}{d.deity?` · ${d.deity}`:""}</div>
                             <div style={{ fontSize:11, color:"#6B7280" }}>{d.language||""}{d.genre||d.type?` · ${d.genre||d.type}`:""}</div>

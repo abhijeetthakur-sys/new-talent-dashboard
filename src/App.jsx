@@ -3852,6 +3852,10 @@ function OriginalsSection({ data, canEdit, onUpdate, period, ytApiKey, airtableC
                             {d.dspLink && <a href={d.dspLink} target="_blank" rel="noreferrer" style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(4,120,87,0.1)", border:"1px solid rgba(4,120,87,0.25)", borderRadius:7, color:"#047857", fontSize:10, fontWeight:700, padding:"6px 8px", textDecoration:"none" }}>Spotify / DSP</a>}
                             {d.ytLink && <a href={d.ytLink} target="_blank" rel="noreferrer" style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(220,38,38,0.08)", border:"1px solid rgba(220,38,38,0.2)", borderRadius:7, color:"#DC2626", fontSize:10, fontWeight:700, padding:"6px 8px", textDecoration:"none" }}>YouTube</a>}
                             {canEdit && <button onClick={()=>open("devotional",{...d},realIdx)} style={{ background:"rgba(0,0,0,0.03)", border:"1px solid #E5E7EB", borderRadius:7, color:"#6B7280", fontSize:11, padding:"5px 8px", cursor:"pointer" }}>✏️</button>}
+                            {canEdit && <button onClick={()=>{ const arr=[...devotional]; arr[realIdx]={...arr[realIdx],prodStatus:"in progress",releaseDate:""}; onUpdate({...data,devotional:arr}); }}
+                              style={{ background:"rgba(180,83,9,0.06)", border:"1px solid rgba(180,83,9,0.2)", borderRadius:7, color:"#B45309", fontSize:9, fontWeight:700, padding:"5px 8px", cursor:"pointer", fontFamily:"inherit" }}>
+                              ↩ Back to Prod
+                            </button>}
                           </div>
                         </div>
                       </div>
@@ -3963,7 +3967,7 @@ function OriginalsSection({ data, canEdit, onUpdate, period, ytApiKey, airtableC
                             <div style={{ display:"flex", gap:5, marginTop:"auto", paddingTop:8, flexWrap:"wrap" }}>
                               {d.finalTrackLink&&<a href={d.finalTrackLink} target="_blank" rel="noreferrer" style={{ fontSize:10, color:C.teal, fontWeight:700, textDecoration:"none" }}>Track</a>}
                               {d.ytLink&&<a href={d.ytLink} target="_blank" rel="noreferrer" style={{ fontSize:10, color:"#DC2626", fontWeight:700, textDecoration:"none" }}>YT</a>}
-                              {canEdit && !d.releaseDate && <button onClick={()=>open("devotional",{...d, prodStatus:"done", releaseDate: new Date().toLocaleDateString("en-IN",{month:"short",year:"numeric"})},realIdx)}
+                              {canEdit && d.prodStatus!=="done" && <button onClick={()=>open("devotional",{...d, prodStatus:"done", releaseDate: d.releaseDate||new Date().toLocaleDateString("en-IN",{month:"short",year:"numeric"})},realIdx)}
                                 style={{ fontSize:9, background:"rgba(4,120,87,0.1)", border:"1px solid rgba(4,120,87,0.3)", borderRadius:5, color:"#047857", padding:"3px 7px", cursor:"pointer", fontFamily:"inherit", fontWeight:700 }}>
                                 Mark Released
                               </button>}

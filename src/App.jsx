@@ -1711,6 +1711,114 @@ function UnmutePlanningSection({ data, canEdit, onUpdate, atdpStudents, onCloudS
     updatePlan({...activePlan, songs: activePlan.songs.filter((_,x)=>x!==i)});
   }
 
+  // ── Checklist helpers ──
+  const TASK_PHASES = ["Pre-Production","Production","Show Day","Post-Production"];
+  const TASK_STATUSES = ["todo","in progress","done","blocked"];
+  const TASK_STATUS_COLORS = { "todo":"#6B7280","in progress":"#B45309","done":"#047857","blocked":"#DC2626" };
+
+  const DEFAULT_CHECKLIST = [
+    // Pre-Production
+    { id:"t1", phase:"Pre-Production", task:"Lock artists (solos + duets)", owner:"", due:"", status:"todo", notes:"" },
+    { id:"t2", phase:"Pre-Production", task:"Finalise song list (keys, BPM, arrangement)", owner:"", due:"", status:"todo", notes:"" },
+    { id:"t3", phase:"Pre-Production", task:"Send song pack to music director", owner:"", due:"", status:"todo", notes:"" },
+    { id:"t4", phase:"Pre-Production", task:"Scratch v1 (piano/click) for all tracks", owner:"", due:"", status:"todo", notes:"" },
+    { id:"t5", phase:"Pre-Production", task:"Reference vocals on scratches", owner:"", due:"", status:"todo", notes:"" },
+    { id:"t6", phase:"Pre-Production", task:"Share scratches + guides with artists", owner:"", due:"", status:"todo", notes:"" },
+    { id:"t7", phase:"Pre-Production", task:"Zoom Rehearsal #1 (solos)", owner:"", due:"", status:"todo", notes:"" },
+    { id:"t8", phase:"Pre-Production", task:"Zoom Rehearsal #2 (duets)", owner:"", due:"", status:"todo", notes:"" },
+    { id:"t9", phase:"Pre-Production", task:"Lyric sheet created + distributed", owner:"", due:"", status:"todo", notes:"" },
+    { id:"t10", phase:"Pre-Production", task:"Final stems delivered (48k/24b, -14 LUFS)", owner:"", due:"", status:"todo", notes:"" },
+    // Production
+    { id:"t11", phase:"Production", task:"Venue booking + payment", owner:"", due:"", status:"todo", notes:"" },
+    { id:"t12", phase:"Production", task:"Camera vendor + crew booked", owner:"", due:"", status:"todo", notes:"" },
+    { id:"t13", phase:"Production", task:"FOH engineer + audio rentals booked", owner:"", due:"", status:"todo", notes:"" },
+    { id:"t14", phase:"Production", task:"Set design plan (annotated photo)", owner:"", due:"", status:"todo", notes:"" },
+    { id:"t15", phase:"Production", task:"Remote camera+light brief PDF", owner:"", due:"", status:"todo", notes:"" },
+    { id:"t16", phase:"Production", task:"Remote audio patch PDF", owner:"", due:"", status:"todo", notes:"" },
+    { id:"t17", phase:"Production", task:"Offline Rehearsal #1 (full stems)", owner:"", due:"", status:"todo", notes:"" },
+    { id:"t18", phase:"Production", task:"Offline Rehearsal #2 (full run)", owner:"", due:"", status:"todo", notes:"" },
+    { id:"t19", phase:"Production", task:"Remote tech check (Zoom at venue)", owner:"", due:"", status:"todo", notes:"" },
+    { id:"t20", phase:"Production", task:"Print call sheet + run-sheet", owner:"", due:"", status:"todo", notes:"" },
+    { id:"t21", phase:"Production", task:"Gear prep (cards/batteries)", owner:"", due:"", status:"todo", notes:"" },
+    { id:"t22", phase:"Production", task:"Petty cash + POs", owner:"", due:"", status:"todo", notes:"" },
+    // Show Day
+    { id:"t23", phase:"Show Day", task:"Report time + crew briefing", owner:"", due:"", status:"todo", notes:"" },
+    { id:"t24", phase:"Show Day", task:"Sound check + monitor mix", owner:"", due:"", status:"todo", notes:"" },
+    { id:"t25", phase:"Show Day", task:"Camera framing + white balance check", owner:"", due:"", status:"todo", notes:"" },
+    { id:"t26", phase:"Show Day", task:"Show run", owner:"", due:"", status:"todo", notes:"" },
+    { id:"t27", phase:"Show Day", task:"Media ingest + dual backup", owner:"", due:"", status:"todo", notes:"" },
+    // Post-Production
+    { id:"t28", phase:"Post-Production", task:"Edit + Mix", owner:"", due:"", status:"todo", notes:"" },
+    { id:"t29", phase:"Post-Production", task:"Internal review (time-coded notes)", owner:"", due:"", status:"todo", notes:"" },
+    { id:"t30", phase:"Post-Production", task:"Final master delivery (WAV + MP4)", owner:"", due:"", status:"todo", notes:"" },
+    { id:"t31", phase:"Post-Production", task:"Publish + clips (YT titles/tags)", owner:"", due:"", status:"todo", notes:"" },
+    { id:"t32", phase:"Post-Production", task:"Retro + metrics (watch %, comments)", owner:"", due:"", status:"todo", notes:"" },
+  ];
+
+  function getChecklist() { return activePlan?.checklist || DEFAULT_CHECKLIST.map(t=>({...t, id:`t${Date.now()}${Math.random().toString(36).slice(2,5)}`+t.id})); }
+  function saveTask(idx, updates) {
+    const tasks = [...getChecklist()];
+    tasks[idx] = {...tasks[idx], ...updates};
+    updatePlan({...activePlan, checklist: tasks});
+  }
+  function addTask(phase) {
+    const tasks = [...getChecklist(), { id:`t${Date.now()}`, phase, task:"", owner:"", due:"", status:"todo", notes:"" }];
+    updatePlan({...activePlan, checklist: tasks});
+  }
+  function deleteTask(idx) {
+    updatePlan({...activePlan, checklist: getChecklist().filter((_,i)=>i!==idx)});
+  }
+
+  // ── Vendor helpers ──
+  const VENDOR_ROLES = ["Camera & Lighting","Sound Engineer","Venue","Catering","Set Design","Transportation","Other"];
+  const PAYMENT_STATUSES = ["Not started","Advance given","Partial payment","Paid in full"];
+
+  function getVendors() { return activePlan?.vendors || []; }
+  function saveVendor(idx, updates) {
+    const vendors = [...getVendors()];
+    if(idx === null) vendors.push({id:`v${Date.now()}`, role:"", name:"", contact:"", service:"", rate:"", paymentStatus:"Not started", advancePaid:"", oncitePOC:"", notes:""});
+    else vendors[idx] = {...vendors[idx], ...updates};
+    updatePlan({...activePlan, vendors});
+    if(idx === null) close();
+  }
+  function deleteVendor(idx) {
+    updatePlan({...activePlan, vendors: getVendors().filter((_,i)=>i!==idx)});
+  }
+
+  // ── Deliverables helpers ──
+  const DELIVERABLE_STATUSES = ["Pending","Received","Under Review","Approved","Revision Requested","Overdue"];
+  const DELIVERABLE_STATUS_COLORS = {
+    "Pending":"#6B7280","Received":"#1E40AF","Under Review":"#B45309",
+    "Approved":"#047857","Revision Requested":"#7C3AED","Overdue":"#DC2626"
+  };
+  const DEFAULT_DELIVERABLES = [
+    // Pavan / Agency — Video Production
+    { id:"d1", item:"Raw footage handover", deadline:"", status:"Pending", driveLink:"", notes:"", assignee:"Pavan" },
+    { id:"d2", item:"Rough cut (first edit)", deadline:"", status:"Pending", driveLink:"", notes:"", assignee:"Pavan" },
+    { id:"d3", item:"Final edit (colour graded)", deadline:"", status:"Pending", driveLink:"", notes:"", assignee:"Pavan" },
+    { id:"d4", item:"Final MP4 (YouTube ready)", deadline:"", status:"Pending", driveLink:"", notes:"", assignee:"Pavan" },
+    { id:"d5", item:"Short reels / clips (3–5)", deadline:"", status:"Pending", driveLink:"", notes:"", assignee:"Pavan" },
+    { id:"d6", item:"Thumbnail options (3+)", deadline:"", status:"Pending", driveLink:"", notes:"", assignee:"Pavan" },
+    { id:"d7", item:"Behind the scenes content", deadline:"", status:"Pending", driveLink:"", notes:"", assignee:"Pavan" },
+    // Akshay — Music Production
+    { id:"d8",  item:"Scratch v1 (piano/click) — all songs", deadline:"", status:"Pending", driveLink:"", notes:"", assignee:"Akshay" },
+    { id:"d9",  item:"Reference vocals on scratches", deadline:"", status:"Pending", driveLink:"", notes:"", assignee:"Akshay" },
+    { id:"d10", item:"Final stems v1 (all songs, 48k/24b)", deadline:"", status:"Pending", driveLink:"", notes:"", assignee:"Akshay" },
+    { id:"d11", item:"Stems tweaks after offline rehearsal", deadline:"", status:"Pending", driveLink:"", notes:"", assignee:"Akshay" },
+    { id:"d12", item:"Final stems v2 (show-ready)", deadline:"", status:"Pending", driveLink:"", notes:"", assignee:"Akshay" },
+    { id:"d13", item:"Audio mix + master (WAV, post-show)", deadline:"", status:"Pending", driveLink:"", notes:"", assignee:"Akshay" },
+  ];
+  function getDeliverables() { return activePlan?.deliverables || DEFAULT_DELIVERABLES.map(d=>({...d, id:`d${Date.now()}${Math.random().toString(36).slice(2,4)}`+d.id})); }
+  function saveDeliverable(idx, updates) {
+    const items = [...getDeliverables()];
+    if(idx === null) items.push({ id:`d${Date.now()}`, item:"", deadline:"", status:"Pending", driveLink:"", notes:"" });
+    else items[idx] = {...items[idx], ...updates};
+    updatePlan({...activePlan, deliverables: items});
+  }
+  function deleteDeliverable(idx) {
+    updatePlan({...activePlan, deliverables: getDeliverables().filter((_,i)=>i!==idx)});
+  }
+
   const CANDIDATE_STATUSES = ["potential","shortlisted","auditioned","confirmed","rejected"];
   const PERFORMER_TYPES = ["ATDP Student","External Student","Teacher/Mentor","Special Guest"];
 
@@ -1864,7 +1972,7 @@ function UnmutePlanningSection({ data, canEdit, onUpdate, atdpStudents, onCloudS
           </div>
 
           {/* Sub-tabs */}
-          <SubTabs tabs={["candidates","songs","notes"]} active={activeTab} onChange={setActiveTab} accent="#C2410C" />
+          <SubTabs tabs={["candidates","songs","checklist","vendors","deliverables","notes"]} active={activeTab} onChange={setActiveTab} accent="#C2410C" />
 
           {/* ── CANDIDATES TAB ── */}
           {activeTab==="candidates" && (
@@ -1968,6 +2076,11 @@ function UnmutePlanningSection({ data, canEdit, onUpdate, atdpStudents, onCloudS
                         <span style={{ fontSize:10, background:prodStageInfo.color+"22", border:`1px solid ${prodStageInfo.color}44`, borderRadius:5, padding:"3px 8px", color:prodStageInfo.color, fontWeight:700 }}>🎛️ {prodStageInfo.label}</span>
                       </div>
                       {s.notes && <div style={{ fontSize:11, color:"#6B7280", width:"100%" }}>{s.notes}</div>}
+                      <div style={{ display:"flex", gap:10, width:"100%", flexWrap:"wrap" }}>
+                        {s.scratchLink && <a href={s.scratchLink} target="_blank" rel="noreferrer" style={{ fontSize:11, color:"#B45309", fontWeight:700, textDecoration:"none" }}>🎵 Scratch</a>}
+                        {s.finalLink && <a href={s.finalLink} target="_blank" rel="noreferrer" style={{ fontSize:11, color:"#047857", fontWeight:700, textDecoration:"none" }}>✅ Final Stems</a>}
+                        {!s.scratchLink && !s.finalLink && <span style={{ fontSize:11, color:"#9CA3AF" }}>No track links yet</span>}
+                      </div>
                       {canEdit && (
                         <div style={{ display:"flex", gap:6, flexShrink:0 }}>
                           <button onClick={()=>setModal({type:"song",form:{...s},idx:i})} style={{ background:"#F9FAFB", border:"1px solid #E5E7EB", borderRadius:7, color:"#6B7280", padding:"5px 10px", fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>✏️</button>
@@ -1982,6 +2095,326 @@ function UnmutePlanningSection({ data, canEdit, onUpdate, atdpStudents, onCloudS
           )}
 
           {/* ── NOTES TAB ── */}
+          {/* ── CHECKLIST TAB ── */}
+          {activeTab==="checklist" && (
+            <div>
+              {/* Progress summary */}
+              {(()=>{
+                const tasks = getChecklist();
+                const done = tasks.filter(t=>t.status==="done").length;
+                const total = tasks.length;
+                const pct = total > 0 ? Math.round(done/total*100) : 0;
+                const blocked = tasks.filter(t=>t.status==="blocked").length;
+                return (
+                  <div style={{ background:"#fff", border:"1px solid #E5E7EB", borderRadius:12, padding:"14px 18px", marginBottom:16, display:"flex", alignItems:"center", gap:16, flexWrap:"wrap" }}>
+                    <div style={{ flex:1, minWidth:200 }}>
+                      <div style={{ display:"flex", justifyContent:"space-between", marginBottom:5 }}>
+                        <span style={{ fontSize:12, fontWeight:700, color:"#1A1A1A" }}>{done} / {total} tasks done</span>
+                        <span style={{ fontSize:12, color:pct===100?"#047857":"#6B7280", fontWeight:700 }}>{pct}%</span>
+                      </div>
+                      <div style={{ height:6, background:"#F3F4F6", borderRadius:99, overflow:"hidden" }}>
+                        <div style={{ height:"100%", width:`${pct}%`, background: pct===100?"#047857":"linear-gradient(90deg,#C2410C,#f59e0b)", borderRadius:99, transition:"width 0.3s" }} />
+                      </div>
+                    </div>
+                    {blocked > 0 && <span style={{ fontSize:11, background:"rgba(220,38,38,0.08)", color:"#DC2626", border:"1px solid rgba(220,38,38,0.2)", borderRadius:6, padding:"3px 10px", fontWeight:700 }}>{blocked} blocked</span>}
+                  </div>
+                );
+              })()}
+
+              {/* Tasks grouped by phase */}
+              {TASK_PHASES.map(phase => {
+                const tasks = getChecklist();
+                const phaseTasks = tasks.map((t,i)=>({...t,_idx:i})).filter(t=>t.phase===phase);
+                const donePct = phaseTasks.length > 0 ? Math.round(phaseTasks.filter(t=>t.status==="done").length/phaseTasks.length*100) : 0;
+                return (
+                  <div key={phase} style={{ marginBottom:20 }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:10 }}>
+                      <div style={{ fontSize:11, fontWeight:700, color:"#C2410C", textTransform:"uppercase", letterSpacing:"0.1em" }}>{phase}</div>
+                      <div style={{ fontSize:10, color:"#6B7280" }}>{phaseTasks.filter(t=>t.status==="done").length}/{phaseTasks.length}</div>
+                      <div style={{ flex:1, height:2, background:"#F3F4F6", borderRadius:99 }}>
+                        <div style={{ height:"100%", width:`${donePct}%`, background:"#C2410C", borderRadius:99 }} />
+                      </div>
+                      {canEdit && <button onClick={()=>addTask(phase)} style={{ fontSize:10, background:"rgba(194,65,12,0.08)", border:"1px solid rgba(194,65,12,0.2)", borderRadius:6, color:"#C2410C", padding:"2px 8px", cursor:"pointer", fontFamily:"inherit", fontWeight:700 }}>+ Add</button>}
+                    </div>
+                    <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+                      {phaseTasks.map(t => (
+                        <div key={t.id} style={{ background:"#fff", border:`1px solid ${t.status==="blocked"?"rgba(220,38,38,0.25)":t.status==="done"?"rgba(4,120,87,0.15)":"#E5E7EB"}`, borderRadius:10, padding:"10px 14px", display:"flex", alignItems:"flex-start", gap:10 }}>
+                          {/* Status toggle */}
+                          <button onClick={()=>{ if(!canEdit) return; const next = t.status==="todo"?"in progress":t.status==="in progress"?"done":t.status==="done"?"blocked":"todo"; saveTask(t._idx,{status:next}); }}
+                            style={{ flexShrink:0, width:18, height:18, borderRadius:4, border:`2px solid ${TASK_STATUS_COLORS[t.status]}`, background:t.status==="done"?TASK_STATUS_COLORS["done"]:"transparent", cursor:canEdit?"pointer":"default", display:"flex", alignItems:"center", justifyContent:"center", marginTop:1 }}>
+                            {t.status==="done" && <span style={{ color:"#fff", fontSize:10, fontWeight:900 }}>✓</span>}
+                            {t.status==="blocked" && <span style={{ color:TASK_STATUS_COLORS["blocked"], fontSize:10 }}>!</span>}
+                            {t.status==="in progress" && <span style={{ color:TASK_STATUS_COLORS["in progress"], fontSize:8 }}>●</span>}
+                          </button>
+                          <div style={{ flex:1 }}>
+                            {canEdit ? (
+                              <input value={t.task} onChange={e=>saveTask(t._idx,{task:e.target.value})}
+                                style={{ width:"100%", border:"none", outline:"none", fontFamily:"inherit", fontSize:13, fontWeight:600, color: t.status==="done"?"#9CA3AF":"#1A1A1A", background:"transparent", textDecoration: t.status==="done"?"line-through":"none" }} />
+                            ) : (
+                              <div style={{ fontSize:13, fontWeight:600, color: t.status==="done"?"#9CA3AF":"#1A1A1A", textDecoration: t.status==="done"?"line-through":"none" }}>{t.task||"Untitled task"}</div>
+                            )}
+                            <div style={{ display:"flex", gap:10, marginTop:5, flexWrap:"wrap", alignItems:"center" }}>
+                              {canEdit ? (
+                                <>
+                                  <input value={t.owner} onChange={e=>saveTask(t._idx,{owner:e.target.value})} placeholder="Owner"
+                                    style={{ border:"none", borderBottom:"1px solid #E5E7EB", outline:"none", fontFamily:"inherit", fontSize:11, color:"#6B7280", background:"transparent", width:90 }} />
+                                  <input type="date" value={t.due} onChange={e=>saveTask(t._idx,{due:e.target.value})}
+                                    style={{ border:"1px solid #E5E7EB", borderRadius:5, outline:"none", fontFamily:"inherit", fontSize:11, color:"#6B7280", background:"#F9FAFB", padding:"2px 5px", width:130 }} />
+                                  <input value={t.notes} onChange={e=>saveTask(t._idx,{notes:e.target.value})} placeholder="Notes"
+                                    style={{ border:"none", borderBottom:"1px solid #E5E7EB", outline:"none", fontFamily:"inherit", fontSize:11, color:"#6B7280", background:"transparent", flex:1, minWidth:80 }} />
+                                </>
+                              ) : (
+                                <>
+                                  {t.owner && <span style={{ fontSize:11, color:"#6B7280" }}>👤 {t.owner}</span>}
+                                  {t.due && <span style={{ fontSize:11, color: new Date(t.due)<new Date() && t.status!=="done"?"#DC2626":"#6B7280", fontWeight: new Date(t.due)<new Date() && t.status!=="done"?700:400 }}>📅 {new Date(t.due).toLocaleDateString("en-IN",{day:"numeric",month:"short"})}</span>}
+                                  {t.notes && <span style={{ fontSize:11, color:"#9CA3AF" }}>{t.notes}</span>}
+                                </>
+                              )}
+                              <span style={{ fontSize:9, fontWeight:700, padding:"1px 6px", borderRadius:99, background:`${TASK_STATUS_COLORS[t.status]}15`, color:TASK_STATUS_COLORS[t.status], border:`1px solid ${TASK_STATUS_COLORS[t.status]}30` }}>{t.status}</span>
+                              {canEdit && <button onClick={()=>deleteTask(t._idx)} style={{ background:"none", border:"none", color:"#DC2626", cursor:"pointer", fontSize:11, padding:0, opacity:0.5 }}>✕</button>}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                      {phaseTasks.length === 0 && <div style={{ fontSize:12, color:"#9CA3AF", padding:"8px 0" }}>No tasks yet. Click + Add to create one.</div>}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* ── VENDORS TAB ── */}
+          {activeTab==="vendors" && (
+            <div>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
+                <div style={{ fontSize:13, fontWeight:700, color:"#1A1A1A" }}>Vendors & Crew</div>
+                {canEdit && <button onClick={()=>{ saveVendor(null); }}
+                  style={{ background:"linear-gradient(135deg,#7C3AED,#5B21B6)", border:"none", borderRadius:8, color:"#fff", padding:"7px 14px", fontSize:12, fontWeight:800, cursor:"pointer", fontFamily:"inherit" }}>
+                  + Add Vendor
+                </button>}
+              </div>
+
+              {/* Budget summary */}
+              {(()=>{
+                const vendors = getVendors();
+                const total = vendors.reduce((a,v)=>a+(parseInt((v.rate||"0").replace(/[^0-9]/g,""))||0),0);
+                const paid = vendors.filter(v=>v.paymentStatus==="Paid in full").reduce((a,v)=>a+(parseInt((v.rate||"0").replace(/[^0-9]/g,""))||0),0);
+                if(vendors.length === 0) return null;
+                return (
+                  <div style={{ display:"flex", gap:10, marginBottom:16, flexWrap:"wrap" }}>
+                    {[["Total Vendors",vendors.length,"#1A1A1A"],["Confirmed",vendors.filter(v=>v.paymentStatus!=="Not started").length,"#047857"],["Budget Est.",`₹${total.toLocaleString("en-IN")}`,"#B45309"],["Paid",`₹${paid.toLocaleString("en-IN")}`,paid>=total?"#047857":"#DC2626"]].map(([l,v,c])=>(
+                      <div key={l} style={{ background:"rgba(0,0,0,0.02)", border:"1px solid rgba(0,0,0,0.05)", borderRadius:10, padding:"10px 14px", textAlign:"center" }}>
+                        <div style={{ fontSize:16, fontWeight:800, color:c, fontFamily:"monospace" }}>{v}</div>
+                        <div style={{ fontSize:10, color:"#6B7280", marginTop:2 }}>{l}</div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+
+              {getVendors().length === 0 && (
+                <div style={{ fontSize:13, color:"#9CA3AF", padding:"24px 0", textAlign:"center" }}>No vendors added yet. Add your camera crew, sound engineer, venue, etc.</div>
+              )}
+
+              <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+                {getVendors().map((v,i) => {
+                  const pyColor = {"Paid in full":"#047857","Advance given":"#B45309","Partial payment":"#1E40AF","Not started":"#6B7280"}[v.paymentStatus]||"#6B7280";
+                  return (
+                    <div key={v.id||i} style={{ background:"#fff", border:"1px solid #E5E7EB", borderRadius:12, padding:"14px 16px" }}>
+                      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:10, marginBottom:10 }}>
+                        <div>
+                          <div style={{ fontSize:9, fontWeight:700, color:"#6B7280", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:3 }}>Role</div>
+                          {canEdit ? (
+                            <select value={v.role} onChange={e=>saveVendor(i,{role:e.target.value})}
+                              style={{ width:"100%", border:"1px solid #E5E7EB", borderRadius:6, padding:"5px 8px", fontSize:12, fontFamily:"inherit", outline:"none", background:"#F9FAFB" }}>
+                              <option value="">Select role…</option>
+                              {VENDOR_ROLES.map(r=><option key={r} value={r}>{r}</option>)}
+                            </select>
+                          ) : <div style={{ fontSize:12, fontWeight:700, color:"#374151" }}>{v.role||"—"}</div>}
+                        </div>
+                        <div>
+                          <div style={{ fontSize:9, fontWeight:700, color:"#6B7280", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:3 }}>Name</div>
+                          {canEdit ? (
+                            <input value={v.name} onChange={e=>saveVendor(i,{name:e.target.value})} placeholder="Vendor / person name"
+                              style={{ width:"100%", border:"1px solid #E5E7EB", borderRadius:6, padding:"5px 8px", fontSize:12, fontFamily:"inherit", outline:"none" }} />
+                          ) : <div style={{ fontSize:12, fontWeight:700, color:"#1A1A1A" }}>{v.name||"—"}</div>}
+                        </div>
+                        <div>
+                          <div style={{ fontSize:9, fontWeight:700, color:"#6B7280", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:3 }}>Contact</div>
+                          {canEdit ? (
+                            <input value={v.contact} onChange={e=>saveVendor(i,{contact:e.target.value})} placeholder="+91 XXXXX XXXXX"
+                              style={{ width:"100%", border:"1px solid #E5E7EB", borderRadius:6, padding:"5px 8px", fontSize:12, fontFamily:"inherit", outline:"none" }} />
+                          ) : <div style={{ fontSize:12, color:"#374151" }}>{v.contact||"—"}</div>}
+                        </div>
+                        <div>
+                          <div style={{ fontSize:9, fontWeight:700, color:"#6B7280", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:3 }}>Service / Gear</div>
+                          {canEdit ? (
+                            <input value={v.service} onChange={e=>saveVendor(i,{service:e.target.value})} placeholder="e.g. 2× DSLR, 24-70mm, LED panels"
+                              style={{ width:"100%", border:"1px solid #E5E7EB", borderRadius:6, padding:"5px 8px", fontSize:12, fontFamily:"inherit", outline:"none" }} />
+                          ) : <div style={{ fontSize:12, color:"#374151" }}>{v.service||"—"}</div>}
+                        </div>
+                        <div>
+                          <div style={{ fontSize:9, fontWeight:700, color:"#6B7280", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:3 }}>Rate (₹)</div>
+                          {canEdit ? (
+                            <input value={v.rate} onChange={e=>saveVendor(i,{rate:e.target.value})} placeholder="e.g. 22000"
+                              style={{ width:"100%", border:"1px solid #E5E7EB", borderRadius:6, padding:"5px 8px", fontSize:12, fontFamily:"inherit", outline:"none" }} />
+                          ) : <div style={{ fontSize:12, fontWeight:700, color:"#374151" }}>{v.rate ? `₹${v.rate}` : "—"}</div>}
+                        </div>
+                        <div>
+                          <div style={{ fontSize:9, fontWeight:700, color:"#6B7280", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:3 }}>Payment</div>
+                          {canEdit ? (
+                            <select value={v.paymentStatus} onChange={e=>saveVendor(i,{paymentStatus:e.target.value})}
+                              style={{ width:"100%", border:`1px solid ${pyColor}40`, borderRadius:6, padding:"5px 8px", fontSize:12, fontFamily:"inherit", outline:"none", color:pyColor, fontWeight:700, background:`${pyColor}08` }}>
+                              {PAYMENT_STATUSES.map(s=><option key={s} value={s}>{s}</option>)}
+                            </select>
+                          ) : <span style={{ fontSize:11, fontWeight:700, color:pyColor }}>{v.paymentStatus}</span>}
+                        </div>
+                      </div>
+                      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr auto", gap:10, alignItems:"center" }}>
+                        <div>
+                          <div style={{ fontSize:9, fontWeight:700, color:"#6B7280", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:3 }}>Onsite POC</div>
+                          {canEdit ? (
+                            <input value={v.oncitePOC} onChange={e=>saveVendor(i,{oncitePOC:e.target.value})} placeholder="Who manages this vendor"
+                              style={{ width:"100%", border:"1px solid #E5E7EB", borderRadius:6, padding:"5px 8px", fontSize:12, fontFamily:"inherit", outline:"none" }} />
+                          ) : <div style={{ fontSize:12, color:"#374151" }}>{v.oncitePOC||"—"}</div>}
+                        </div>
+                        <div>
+                          <div style={{ fontSize:9, fontWeight:700, color:"#6B7280", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:3 }}>Notes</div>
+                          {canEdit ? (
+                            <input value={v.notes} onChange={e=>saveVendor(i,{notes:e.target.value})} placeholder="Any notes"
+                              style={{ width:"100%", border:"1px solid #E5E7EB", borderRadius:6, padding:"5px 8px", fontSize:12, fontFamily:"inherit", outline:"none" }} />
+                          ) : <div style={{ fontSize:12, color:"#9CA3AF" }}>{v.notes||"—"}</div>}
+                        </div>
+                        {canEdit && <button onClick={()=>deleteVendor(i)} style={{ background:"none", border:"none", color:"#DC2626", cursor:"pointer", fontSize:13, padding:"4px 6px", opacity:0.6 }}>🗑</button>}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* ── DELIVERABLES TAB ── */}
+          {activeTab==="deliverables" && (
+            <div>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
+                <div>
+                  <div style={{ fontSize:13, fontWeight:700, color:"#1A1A1A" }}>Deliverables Tracker</div>
+                  <div style={{ fontSize:11, color:"#6B7280", marginTop:2 }}>Pavan (video production) + Akshay (music production)</div>
+                </div>
+                {canEdit && <button onClick={()=>saveDeliverable(null)}
+                  style={{ background:"linear-gradient(135deg,#C2410C,#9A3412)", border:"none", borderRadius:8, color:"#fff", padding:"7px 14px", fontSize:12, fontWeight:800, cursor:"pointer", fontFamily:"inherit" }}>
+                  + Add Deliverable
+                </button>}
+              </div>
+
+              {/* Summary strip */}
+              {(()=>{
+                const items = getDeliverables();
+                const approved = items.filter(d=>d.status==="Approved").length;
+                const overdue = items.filter(d=>d.status==="Overdue").length;
+                const pending = items.filter(d=>d.status==="Pending").length;
+                const pct = items.length > 0 ? Math.round(approved/items.length*100) : 0;
+                return (
+                  <div style={{ background:"#fff", border:"1px solid #E5E7EB", borderRadius:12, padding:"12px 16px", marginBottom:16 }}>
+                    <div style={{ display:"flex", gap:16, marginBottom:8, flexWrap:"wrap" }}>
+                      {[["Total",items.length,"#1A1A1A"],["Approved",approved,"#047857"],["Pending",pending,"#6B7280"],["Overdue",overdue,overdue>0?"#DC2626":"#9CA3AF"]].map(([l,v,c])=>(
+                        <div key={l} style={{ textAlign:"center" }}>
+                          <div style={{ fontFamily:"monospace", fontSize:18, fontWeight:800, color:c }}>{v}</div>
+                          <div style={{ fontSize:10, color:"#6B7280" }}>{l}</div>
+                        </div>
+                      ))}
+                      <div style={{ flex:1, display:"flex", alignItems:"center", gap:10, minWidth:150 }}>
+                        <div style={{ flex:1, height:5, background:"#F3F4F6", borderRadius:99 }}>
+                          <div style={{ height:"100%", width:`${pct}%`, background:pct===100?"#047857":"linear-gradient(90deg,#C2410C,#f59e0b)", borderRadius:99, transition:"width 0.3s" }} />
+                        </div>
+                        <span style={{ fontSize:11, fontWeight:700, color:pct===100?"#047857":"#6B7280" }}>{pct}% done</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Deliverables grouped by assignee */}
+              {["Pavan","Akshay","Other"].map(assignee => {
+                const items = getDeliverables().map((d,i)=>({...d,_idx:i})).filter(d=>(d.assignee||"Other")===assignee);
+                if(items.length===0) return null;
+                const done = items.filter(d=>d.status==="Approved").length;
+                return (
+                  <div key={assignee} style={{ marginBottom:20 }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:10 }}>
+                      <div style={{ fontSize:11, fontWeight:700, color:"#C2410C", textTransform:"uppercase", letterSpacing:"0.1em" }}>{assignee}</div>
+                      <div style={{ fontSize:10, color:"#6B7280" }}>{done}/{items.length} approved</div>
+                      <div style={{ flex:1, height:2, background:"#F3F4F6", borderRadius:99 }}>
+                        <div style={{ height:"100%", width:items.length>0?`${Math.round(done/items.length*100)}%`:"0%", background:"#047857", borderRadius:99 }} />
+                      </div>
+                    </div>
+                    <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+                    {items.map((d) => { const i = d._idx;
+                  const stColor = DELIVERABLE_STATUS_COLORS[d.status] || "#6B7280";
+                  return (
+                    <div key={d.id||i} style={{ background:"#fff", border:`1px solid ${d.status==="Overdue"?"rgba(220,38,38,0.25)":d.status==="Approved"?"rgba(4,120,87,0.15)":"#E5E7EB"}`, borderRadius:12, padding:"12px 16px" }}>
+                      <div style={{ display:"grid", gridTemplateColumns:"2fr 1fr 1fr 1fr auto", gap:10, alignItems:"center" }}>
+                        {/* Deliverable name */}
+                        <div>
+                          <div style={{ fontSize:9, fontWeight:700, color:"#6B7280", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:3 }}>Deliverable</div>
+                          {canEdit ? (
+                            <input value={d.item} onChange={e=>saveDeliverable(i,{item:e.target.value})}
+                              style={{ width:"100%", border:"none", borderBottom:"1px solid #E5E7EB", outline:"none", fontFamily:"inherit", fontSize:13, fontWeight:600, color:"#1A1A1A", background:"transparent", padding:"2px 0" }} />
+                          ) : <div style={{ fontSize:13, fontWeight:600, color:"#1A1A1A" }}>{d.item||"—"}</div>}
+                        </div>
+
+                        {/* Deadline */}
+                        <div>
+                          <div style={{ fontSize:9, fontWeight:700, color:"#6B7280", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:3 }}>Deadline</div>
+                          {canEdit ? (
+                            <input type="date" value={d.deadline} onChange={e=>saveDeliverable(i,{deadline:e.target.value})}
+                              style={{ width:"100%", border:"1px solid #E5E7EB", borderRadius:6, outline:"none", fontFamily:"inherit", fontSize:12, color:"#374151", background:"#F9FAFB", padding:"4px 6px" }} />
+                          ) : <div style={{ fontSize:12, color:"#374151" }}>{d.deadline ? new Date(d.deadline).toLocaleDateString("en-IN",{day:"numeric",month:"short",year:"numeric"}) : "—"}</div>}
+                        </div>
+
+                        {/* Status */}
+                        <div>
+                          <div style={{ fontSize:9, fontWeight:700, color:"#6B7280", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:3 }}>Status</div>
+                          {canEdit ? (
+                            <select value={d.status} onChange={e=>saveDeliverable(i,{status:e.target.value})}
+                              style={{ width:"100%", border:`1px solid ${stColor}40`, borderRadius:6, padding:"4px 7px", fontSize:11, fontFamily:"inherit", outline:"none", color:stColor, fontWeight:700, background:`${stColor}08` }}>
+                              {DELIVERABLE_STATUSES.map(s=><option key={s} value={s}>{s}</option>)}
+                            </select>
+                          ) : <span style={{ fontSize:11, fontWeight:700, color:stColor }}>{d.status}</span>}
+                        </div>
+
+                        {/* Drive link */}
+                        <div>
+                          <div style={{ fontSize:9, fontWeight:700, color:"#6B7280", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:3 }}>Drive Link</div>
+                          {canEdit ? (
+                            <input value={d.driveLink} onChange={e=>saveDeliverable(i,{driveLink:e.target.value})} placeholder="https://drive.google.com/..."
+                              style={{ width:"100%", border:"none", borderBottom:"1px solid #E5E7EB", outline:"none", fontFamily:"inherit", fontSize:11, color:"#1E40AF", background:"transparent", padding:"2px 0" }} />
+                          ) : d.driveLink ? <a href={d.driveLink} target="_blank" rel="noreferrer" style={{ fontSize:11, color:"#1E40AF", fontWeight:700 }}>Open</a> : <span style={{ fontSize:11, color:"#9CA3AF" }}>—</span>}
+                        </div>
+
+                        {/* Delete */}
+                        {canEdit && <button onClick={()=>deleteDeliverable(i)} style={{ background:"none", border:"none", color:"#DC2626", cursor:"pointer", fontSize:13, padding:"4px", opacity:0.5 }}>🗑</button>}
+                      </div>
+
+                      {/* Notes row */}
+                      <div style={{ marginTop:8 }}>
+                        {canEdit ? (
+                          <input value={d.notes} onChange={e=>saveDeliverable(i,{notes:e.target.value})} placeholder="Notes (e.g. revision requested on timing at 2:34)"
+                            style={{ width:"100%", border:"none", borderBottom:"1px solid #F3F4F6", outline:"none", fontFamily:"inherit", fontSize:11, color:"#6B7280", background:"transparent", padding:"2px 0" }} />
+                        ) : d.notes ? <div style={{ fontSize:11, color:"#6B7280", fontStyle:"italic" }}>{d.notes}</div> : null}
+                      </div>
+                    </div>
+                  );
+                })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
           {activeTab==="notes" && (
             <div style={{ background:"#fff", backdropFilter:"blur(16px)", WebkitBackdropFilter:"blur(16px)", border:"1px solid #E5E7EB", borderRadius:14, padding:20 }}>
               <div style={{ fontSize:13, fontWeight:700, color:"#1A1A1A", marginBottom:12 }}>Edition Notes & Logistics</div>
@@ -2107,6 +2540,11 @@ function UnmutePlanningSection({ data, canEdit, onUpdate, atdpStudents, onCloudS
               );
             })()}
 
+            <Divider label="Track Links" />
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+              <Field label="Scratch / Guide Track (link)" value={modal.form.scratchLink||""} onChange={v=>setModal(p=>({...p,form:{...p.form,scratchLink:v}}))} placeholder="Drive / WeTransfer link" />
+              <Field label="Final Stems / Track (link)" value={modal.form.finalLink||""} onChange={v=>setModal(p=>({...p,form:{...p.form,finalLink:v}}))} placeholder="Drive link to final stems" />
+            </div>
             <Field label="Notes" value={modal.form.notes} onChange={v=>setModal(p=>({...p,form:{...p.form,notes:v}}))} textarea placeholder="Arrangement notes, concerns, ideas…" />
             <div style={{ display:"flex", gap:8, justifyContent:"flex-end" }}>
               <button onClick={close} style={{ background:"#F9FAFB", border:"none", borderRadius:8, color:"#374151", padding:"9px 18px", fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>Cancel</button>

@@ -24,7 +24,7 @@
   body { background: var(--bg); color: var(--ink); font-family: 'DM Sans', sans-serif; font-size: 15px; line-height: 1.6; min-height: 100vh; }
 
   /* Header */
-  .header { background: var(--ink); color: #fff; padding: 32px 0 28px; text-align: center; }
+  .header { background: #1a1410; color: #fff; padding: 32px 0 28px; text-align: center; }
   .header-logo { display: inline-flex; align-items: center; gap: 10px; margin-bottom: 20px; }
   .header-logo img { height: 28px; filter: brightness(0) invert(1); }
   .header h1 { font-family: 'DM Serif Display', serif; font-size: 2.2rem; font-weight: 400; letter-spacing: -0.02em; color: #fff; }
@@ -104,11 +104,7 @@
 
 <div class="header">
   <div class="header-logo">
-    <svg width="160" height="44" viewBox="0 0 160 44" xmlns="http://www.w3.org/2000/svg">
-      <text x="0" y="22" font-family="Georgia,serif" font-size="22" font-weight="700" fill="white" letter-spacing="-0.5">artium</text>
-      <text x="0" y="40" font-family="Georgia,serif" font-size="13" fill="rgba(255,255,255,0.7)" letter-spacing="3">ORIGINALS</text>
-      <circle cx="148" cy="8" r="4" fill="#c8472a"/>
-    </svg>
+    <img src="data:image/png;base64,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" alt="Artium Originals" style="height:56px;width:auto;object-fit:contain" />
   </div>
   <div class="header-pill">Release Metadata</div>
   <h1>Release Submission Form</h1>
@@ -256,21 +252,12 @@
       </div>
     </div>
 
-    <!-- 6. Artwork -->
-    <div class="section">
-      <div class="section-header">
-        <div class="section-num">6</div>
-        <div><div class="section-title">Artwork</div><div class="section-sub">Minimum 1000×1000px, square format</div></div>
-      </div>
-      <div class="info-note">Paste a Google Drive link, Dropbox link, or any direct image URL. Make sure the link is publicly accessible.</div>
-      <div class="field"><label>Artwork Link <span class="opt">(optional)</span></label><input type="text" name="artwork_link" placeholder="https://drive.google.com/... or https://..." /></div>
-      <div class="field"><label>Artwork / Mood Reference Notes <span class="opt">(optional)</span></label><textarea name="artwork_notes" placeholder="Describe the mood, colours, or style you have in mind if artwork isn't ready yet…"></textarea></div>
-    </div>
+
 
     <!-- 7. Supporting Files -->
     <div class="section">
       <div class="section-header">
-        <div class="section-num">7</div>
+        <div class="section-num">6</div>
         <div><div class="section-title">Supporting Files</div><div class="section-sub">Paste Google Drive folder or file links for each asset type</div></div>
       </div>
       <div class="info-note">Share access to each folder/file with <strong>originals@artiumacademy.com</strong> before submitting.</div>
@@ -283,10 +270,10 @@
       </div>
     </div>
 
-    <!-- 8. Marketing Copy -->
+    <!-- 7. Marketing Copy -->
     <div class="section">
       <div class="section-header">
-        <div class="section-num">8</div>
+        <div class="section-num">7</div>
         <div><div class="section-title">Marketing Copy</div><div class="section-sub">Text for stores, press, and pitching</div></div>
       </div>
       <div class="field"><label>Short Description — for stores <span class="opt">(optional)</span></label><textarea name="desc_short" placeholder="1–2 sentence description for DSP store pages…" style="min-height:70px"></textarea></div>
@@ -298,10 +285,10 @@
       <div class="field"><label>Spotify Pitch Text <span class="opt">(≤500 characters)</span></label><textarea name="spotify_pitch" placeholder="Pitch text for Spotify editorial consideration — keep it under 500 characters…" style="min-height:80px" maxlength="500" oninput="updateCharCount(this,'spotifyCount')"></textarea><div id="spotifyCount" style="font-size:11px;color:var(--ink3);text-align:right;margin-top:3px">0 / 500</div></div>
     </div>
 
-    <!-- 9. Rights & Distribution -->
+    <!-- 8. Rights & Distribution -->
     <div class="section">
       <div class="section-header">
-        <div class="section-num">9</div>
+        <div class="section-num">8</div>
         <div><div class="section-title">Rights & Distribution</div><div class="section-sub">Label, copyright, and release details</div></div>
       </div>
       <div class="grid-2">
@@ -338,25 +325,28 @@
       </div>
     </div>
 
-    <!-- 10. Visual Assets -->
+    <!-- 6. Artwork & Visual Assets -->
     <div class="section">
       <div class="section-header">
-        <div class="section-num">10</div>
-        <div><div class="section-title">Visual Assets</div><div class="section-sub">Cover art and design credits</div></div>
+        <div class="section-num">9</div>
+        <div><div class="section-title">Artwork & Visual Assets</div><div class="section-sub">Cover art, links, and design credits</div></div>
       </div>
+      <div class="info-note">Paste a Google Drive link or any publicly accessible URL. Minimum 3000×3000px for DSP release.</div>
       <div class="grid-2">
+        <div class="field"><label>Artwork Folder / Link <span class="opt">(optional)</span></label><input type="text" name="artwork_link" placeholder="https://drive.google.com/... or direct image URL" /></div>
         <div class="field"><label>Cover Art File Name <span class="opt">(optional)</span></label><input type="text" name="art_filename" placeholder="e.g. tum-hi-ho-cover-final.jpg" /></div>
         <div class="field"><label>Dimensions <span class="opt">(optional)</span></label><input type="text" name="art_dimensions" placeholder="e.g. 3000×3000px" /></div>
         <div class="field"><label>Design Credit <span class="opt">(optional)</span></label><input type="text" name="art_design_credit" placeholder="Designer name / studio" /></div>
         <div class="field"><label>Photography Credit <span class="opt">(optional)</span></label><input type="text" name="art_photo_credit" placeholder="Photographer name" /></div>
         <div class="field"><label>Copyright Line on Art <span class="opt">(optional)</span></label><input type="text" name="art_copyright_line" placeholder="e.g. © 2025 Artium Academy" /></div>
       </div>
+      <div class="field"><label>Artwork / Mood Reference Notes <span class="opt">(optional)</span></label><textarea name="artwork_notes" placeholder="Describe the mood, colours, or style you have in mind if artwork isn't ready yet…"></textarea></div>
     </div>
 
-    <!-- 11. Music Video -->
+    <!-- 9. Music Video -->
     <div class="section">
       <div class="section-header">
-        <div class="section-num">11</div>
+        <div class="section-num">10</div>
         <div><div class="section-title">Music Video</div><div class="section-sub">Skip if not applicable</div></div>
       </div>
       <div class="grid-2">
@@ -370,11 +360,11 @@
       </div>
     </div>
 
-    <!-- 12. Custom Fields (admin-injected) -->
+    <!-- 10. Custom Fields (admin-injected) -->
     <div id="customFieldsSection" style="display:none">
       <div class="section">
         <div class="section-header">
-          <div class="section-num">12</div>
+          <div class="section-num">11</div>
           <div><div class="section-title">Additional Fields</div><div class="section-sub">Custom fields added by the Artium team</div></div>
         </div>
         <div id="customFieldsForm"></div>

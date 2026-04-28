@@ -1,0 +1,7 @@
+{
+  "routes": [
+    { "src": "/unmute-agency-brief.html", "dest": "/unmute-agency-brief.html" },
+    { "src": "/unmute-hyderabad-nomination.html", "dest": "/unmute-hyderabad-nomination.html" },
+    { "src": "/(.*)", "dest": "/index.html" }
+  ]
+}

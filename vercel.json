@@ -1,11 +1,12 @@
 {
   "routes": [
-    { "src": "/unmute-agency-brief.html", "dest": "/unmute-agency-brief.html" },
-    { "src": "/unmute-hyderabad-nomination.html", "dest": "/unmute-hyderabad-nomination.html" },
-    { "src": "/ao-teacher-series.html", "dest": "/ao-teacher-series.html" },
-    { "src": "/ao-release-form.html", "dest": "/ao-release-form.html" },
-    { "src": "/artium_unmute_content_report_v2.html", "dest": "/artium_unmute_content_report_v2.html" },
+    { "src": "/static/(.*)", "dest": "/static/$1" },
+    { "src": "/(.*)\\.js", "dest": "/$1.js" },
+    { "src": "/(.*)\\.css", "dest": "/$1.css" },
     { "src": "/(.*)\\.html", "dest": "/$1.html" },
+    { "src": "/(.*)\\.png", "dest": "/$1.png" },
+    { "src": "/(.*)\\.ico", "dest": "/$1.ico" },
+    { "src": "/(.*)\\.json", "dest": "/$1.json" },
     { "src": "/(.*)", "dest": "/index.html" }
   ]
 }

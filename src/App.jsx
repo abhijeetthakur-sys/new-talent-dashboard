@@ -3745,6 +3745,7 @@ function OriginalsSection({ data, canEdit, onUpdate, period, ytApiKey, airtableC
   const [rmLoading, setRmLoading] = React.useState(false);
   const [rmError, setRmError] = React.useState("");
   const [rmQ, setRmQ] = React.useState("");
+  const [rmExpanded, setRmExpanded] = React.useState(null);
   const RM_SHEET_ID = "1kB80SrX2r_LQXnFzB78dJ_hOgMIBVk9pvwoN7ZOSSsc";
   const RM_FORM_URL = "https://talent-originals.vercel.app/ao-release-form.html";
   const RM_SHEET_URL = `https://docs.google.com/spreadsheets/d/${RM_SHEET_ID}`;
@@ -4538,6 +4539,7 @@ function OriginalsSection({ data, canEdit, onUpdate, period, ytApiKey, airtableC
       {/* ── METADATA TAB ── */}
       {tab==="Metadata" && (
         <div>
+          {/* Header */}
           <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:18, flexWrap:"wrap", gap:10 }}>
             <div>
               <div style={{ fontSize:15, fontWeight:800, color:"#1A1A1A" }}>Release Metadata Submissions</div>
@@ -4549,11 +4551,14 @@ function OriginalsSection({ data, canEdit, onUpdate, period, ytApiKey, airtableC
               <button onClick={()=>loadRmSubmissions(accessToken)} disabled={rmLoading} style={{ background:"#F9FAFB", border:"1px solid #E5E7EB", borderRadius:8, color:"#374151", padding:"7px 13px", fontSize:12, fontWeight:700, cursor:rmLoading?"wait":"pointer", fontFamily:"inherit" }}>{rmLoading?"Loading…":"⟳ Refresh"}</button>
             </div>
           </div>
+
+          {/* Pipeline */}
           {rmSubmissions.length>0 && (
             <div style={{ display:"flex", gap:8, overflowX:"auto", paddingBottom:4, marginBottom:18 }}>
               {RM_STAGES.map(stage=>{ const count=rmSubmissions.filter(s=>(s.rm_status||"Received")===stage).length; const color=RM_STAGE_COLORS[stage]||"#6B7280"; return (<div key={stage} style={{ flex:"0 0 auto", minWidth:110, background:"#fff", border:`1px solid ${color}22`, borderTop:`3px solid ${color}`, borderRadius:10, padding:"11px 12px", textAlign:"center" }}><div style={{ fontFamily:"monospace", fontSize:20, fontWeight:800, color }}>{count}</div><div style={{ fontSize:10, color:"#6B7280", marginTop:3 }}>{stage}</div></div>); })}
             </div>
           )}
+
           {rmError && <div style={{ background:"rgba(220,38,38,0.06)", border:"1px solid rgba(220,38,38,0.2)", borderRadius:10, padding:"14px 18px", marginBottom:16, fontSize:13, color:"#DC2626" }}>{rmError}</div>}
           {!rmLoading && !rmError && rmSubmissions.length===0 && (
             <div style={{ background:"rgba(157,23,77,0.04)", border:"1px solid rgba(157,23,77,0.12)", borderRadius:14, padding:"32px 24px", textAlign:"center" }}>
@@ -4562,34 +4567,196 @@ function OriginalsSection({ data, canEdit, onUpdate, period, ytApiKey, airtableC
               <button onClick={()=>loadRmSubmissions(accessToken)} disabled={rmLoading} style={{ background:"linear-gradient(135deg,#9D174D,#7C1240)", border:"none", borderRadius:8, color:"#fff", padding:"10px 22px", fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>Load Submissions</button>
             </div>
           )}
+
+          {/* Search */}
           {rmSubmissions.length>0 && <div style={{ marginBottom:14 }}><input value={rmQ} onChange={e=>setRmQ(e.target.value)} placeholder="Search by song title, artist, release type…" style={{ width:"100%", background:"#F9FAFB", border:"1px solid #E5E7EB", borderRadius:8, padding:"8px 14px", fontSize:13, fontFamily:"inherit", outline:"none" }} /></div>}
+
+          {/* Submission cards */}
           <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
             {rmSubmissions.filter(s=>rmQ.trim().length<2||[s.song_title,s.primary_name_1,s.release_type,s.language].some(v=>(v||"").toLowerCase().includes(rmQ.toLowerCase()))).map((s,i)=>{
-              const status=s.rm_status||"Received"; const stColor=RM_STAGE_COLORS[status]||"#6B7280";
+              const status=s.rm_status||"Received";
+              const stColor=RM_STAGE_COLORS[status]||"#6B7280";
+              const isExp = rmExpanded===i;
+
+              // All linked songs across flagship + devotional
+              const allSongs = [...(flagship||[]).map(f=>({...f, _type:"Flagship"})), ...(devotional||[]).map(d=>({...d, _type:"Teacher Track"}))];
+              const linkedSong = s._linkedSong || "";
+
               return (
-                <div key={i} style={{ background:"#fff", border:"1px solid #E5E7EB", borderRadius:12, padding:"14px 18px" }} onMouseEnter={e=>e.currentTarget.style.borderColor="rgba(157,23,77,0.25)"} onMouseLeave={e=>e.currentTarget.style.borderColor="#E5E7EB"}>
-                  <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:12, flexWrap:"wrap" }}>
-                    <div style={{ flex:1, minWidth:200 }}>
-                      <div style={{ fontSize:14, fontWeight:800, color:"#1A1A1A" }}>{s.song_title||"Untitled"}</div>
-                      <div style={{ fontSize:12, color:"#6B7280", marginTop:2 }}>{s.primary_name_1||"—"}</div>
-                      <div style={{ display:"flex", gap:8, marginTop:6, flexWrap:"wrap" }}>
-                        {s.release_type&&<span style={{ fontSize:10, background:"rgba(157,23,77,0.08)", color:"#9D174D", borderRadius:5, padding:"2px 7px", fontWeight:700 }}>{s.release_type}</span>}
-                        {s.language&&<span style={{ fontSize:10, background:"rgba(0,0,0,0.04)", color:"#6B7280", borderRadius:5, padding:"2px 7px" }}>{s.language}</span>}
-                        {s.genre&&<span style={{ fontSize:10, background:"rgba(0,0,0,0.04)", color:"#6B7280", borderRadius:5, padding:"2px 7px" }}>{s.genre}</span>}
-                        <span style={{ fontSize:10, color:"#9CA3AF" }}>{(s.submittedAt||"").slice(0,10)}</span>
+                <div key={i} style={{ background:"#fff", border:`1px solid ${isExp?"rgba(157,23,77,0.3)":"#E5E7EB"}`, borderRadius:12, overflow:"hidden", boxShadow:isExp?"0 4px 20px rgba(157,23,77,0.08)":"none" }}>
+                  {/* Card header — always visible */}
+                  <div style={{ padding:"14px 18px", cursor:"pointer" }}
+                    onClick={()=>setRmExpanded(isExp?null:i)}>
+                    <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:12, flexWrap:"wrap" }}>
+                      <div style={{ flex:1, minWidth:200 }}>
+                        <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                          <div style={{ fontSize:14, fontWeight:800, color:"#1A1A1A" }}>{s.song_title||"Untitled"}</div>
+                          {linkedSong && <span style={{ fontSize:10, background:"rgba(4,120,87,0.1)", color:"#047857", border:"1px solid rgba(4,120,87,0.2)", borderRadius:99, padding:"1px 8px", fontWeight:700 }}>🔗 Linked</span>}
+                        </div>
+                        <div style={{ fontSize:12, color:"#6B7280", marginTop:2 }}>{s.primary_name_1||s.primary_legal_1||"—"}</div>
+                        <div style={{ display:"flex", gap:8, marginTop:6, flexWrap:"wrap" }}>
+                          {s.release_type&&<span style={{ fontSize:10, background:"rgba(157,23,77,0.08)", color:"#9D174D", borderRadius:5, padding:"2px 7px", fontWeight:700 }}>{s.release_type}</span>}
+                          {s.language&&<span style={{ fontSize:10, background:"rgba(0,0,0,0.04)", color:"#6B7280", borderRadius:5, padding:"2px 7px" }}>{s.language}</span>}
+                          {s.genre&&<span style={{ fontSize:10, background:"rgba(0,0,0,0.04)", color:"#6B7280", borderRadius:5, padding:"2px 7px" }}>{s.genre}</span>}
+                          <span style={{ fontSize:10, color:"#9CA3AF" }}>{(s.submittedAt||"").slice(0,10)}</span>
+                        </div>
                       </div>
-                      {s.artwork_link&&<a href={s.artwork_link} target="_blank" rel="noreferrer" style={{ fontSize:11, color:"#1E40AF", fontWeight:700, textDecoration:"none", marginTop:4, display:"inline-block" }}>🖼 Artwork</a>}
-                    </div>
-                    <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:8 }}>
-                      {canEdit?(
-                        <select value={status} onChange={e=>updateRmStatus(s._rowIndex,e.target.value,accessToken)} style={{ background:`${stColor}12`, border:`1px solid ${stColor}40`, borderRadius:7, color:stColor, padding:"5px 10px", fontSize:11, fontWeight:700, fontFamily:"inherit", outline:"none", cursor:"pointer" }}>
-                          {RM_STAGES.map(st=><option key={st} value={st} style={{ background:"#fff", color:"#1A1A1A" }}>{st}</option>)}
-                        </select>
-                      ):<span style={{ fontSize:11, background:`${stColor}12`, color:stColor, borderRadius:5, padding:"3px 8px", fontWeight:700 }}>{status}</span>}
-                      {s.target_release_month&&<span style={{ fontSize:11, color:"#6B7280" }}>Target: {s.target_release_month}</span>}
+                      <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:8 }}>
+                        {canEdit?(
+                          <select value={status} onClick={e=>e.stopPropagation()} onChange={e=>{ e.stopPropagation(); updateRmStatus(s._rowIndex,e.target.value,accessToken); }} style={{ background:`${stColor}12`, border:`1px solid ${stColor}40`, borderRadius:7, color:stColor, padding:"5px 10px", fontSize:11, fontWeight:700, fontFamily:"inherit", outline:"none", cursor:"pointer" }}>
+                            {RM_STAGES.map(st=><option key={st} value={st} style={{ background:"#fff", color:"#1A1A1A" }}>{st}</option>)}
+                          </select>
+                        ):<span style={{ fontSize:11, background:`${stColor}12`, color:stColor, borderRadius:5, padding:"3px 8px", fontWeight:700 }}>{status}</span>}
+                        {s.target_release_month&&<span style={{ fontSize:11, color:"#6B7280" }}>Target: {s.target_release_month}</span>}
+                        <span style={{ fontSize:11, color:"#9CA3AF" }}>{isExp?"▲ Less":"▼ Full details"}</span>
+                      </div>
                     </div>
                   </div>
-                  {s.special_notes&&<div style={{ marginTop:10, paddingTop:10, borderTop:"1px solid rgba(0,0,0,0.04)", fontSize:12, color:"#6B7280" }}>{s.special_notes}</div>}
+
+                  {/* Expanded full metadata */}
+                  {isExp && (
+                    <div style={{ borderTop:"1px solid rgba(0,0,0,0.06)", padding:"20px 18px", background:"rgba(249,250,251,0.7)" }}>
+                      {/* Link to existing song */}
+                      <div style={{ marginBottom:20, padding:"12px 16px", background:"rgba(4,120,87,0.05)", border:"1px solid rgba(4,120,87,0.15)", borderRadius:10 }}>
+                        <div style={{ fontSize:11, fontWeight:700, color:"#047857", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:8 }}>Link to Existing Track</div>
+                        <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+                          <select value={s._linkedSong||""} onChange={e=>{
+                            setRmSubmissions(prev=>prev.map((sub,si)=>si===i?{...sub,_linkedSong:e.target.value}:sub));
+                          }} style={{ flex:1, border:"1px solid #E5E7EB", borderRadius:7, padding:"6px 10px", fontSize:12, fontFamily:"inherit", outline:"none", background:"#fff" }}>
+                            <option value="">— Not linked to any track —</option>
+                            <optgroup label="Flagship Originals">
+                              {(flagship||[]).map((f,fi)=><option key={fi} value={`flagship:${fi}`}>{f.title||"Untitled"} — {f.artist||"—"}</option>)}
+                            </optgroup>
+                            <optgroup label="Teacher Tracks">
+                              {(devotional||[]).map((d,di)=><option key={di} value={`teacher:${di}`}>{d.name||"Untitled"} — {d.religion||d.trackCategory||"—"}</option>)}
+                            </optgroup>
+                          </select>
+                          {s._linkedSong && <span style={{ fontSize:11, color:"#047857", fontWeight:700 }}>✓ Linked</span>}
+                        </div>
+                      </div>
+
+                      {/* Full metadata sections */}
+                      {[
+                        { title:"Track Details", fields:[["Song Title","song_title"],["Release Type","release_type"],["Language","language"],["Genre","genre"],["Sub-Genre","sub_genre"],["Recording Year","recording_year"],["Target Release Month","target_release_month"],["Explicit","explicit"]] },
+                        { title:"Primary Artist", fields:[["Name","primary_name_1"],["Legal Name","primary_legal_1"],["Phone","primary_phone_1"],["Email","primary_email_1"],["Instagram","primary_instagram_1"],["YouTube","primary_youtube_1"],["Spotify","primary_spotify_1"],["IPRS","primary_iprs_1"],["IPRS No.","primary_iprs_num_1"],["Nationality","primary_nationality_1"]] },
+                        { title:"Credits", fields:[["Composer","composer_names"],["Lyricist","lyricist_names"],["Producer","producer_name"],["Recording Studio","recording_studio"],["Mix Engineer","mix_engineer"],["Mastering Engineer","mastering_engineer"]] },
+                        { title:"Rights & Distribution", fields:[["Label","label_name"],["Publisher","publisher"],["Copyright (C)","copyright_c"],["Copyright (P)","copyright_p"],["Ownership %","ownership_pct"],["Territories","territories"],["Distribution Partner","distribution_partner"],["Release Date (Audio)","release_date_audio"],["Release Date (Video)","release_date_video"],["Pre-save Date","presave_date"],["Content ID","content_id"],["YT Channel","yt_channel"],["Spotify Admin","spotify_admin"]] },
+                        { title:"Supporting Files", fields:[["Audio Folder","folder_audio"],["Artwork Folder","folder_artwork"],["Video","folder_video"],["Docs","folder_docs"],["Lyrics","folder_lyrics"],["Artwork Link","artwork_link"]] },
+                        { title:"Marketing", fields:[["Short Description","desc_short"],["Tagline","tagline"],["Press Quote","press_quote"],["Spotify Pitch","spotify_pitch"]] },
+                        { title:"Music Video", fields:[["Director","mv_director"],["DOP","mv_dop"],["Editor","mv_editor"],["Canvas","mv_canvas"],["Thumbnail","mv_thumbnail"]] },
+                      ].map(section=>{
+                        const populated = section.fields.filter(([,key])=>s[key]&&s[key].trim());
+                        if(!populated.length) return null;
+                        return (
+                          <div key={section.title} style={{ marginBottom:16 }}>
+                            <div style={{ fontSize:10, fontWeight:700, color:"#9D174D", textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:8 }}>{section.title}</div>
+                            <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))", gap:8 }}>
+                              {populated.map(([label,key])=>(
+                                <div key={key} style={{ background:"#fff", border:"1px solid #F3F4F6", borderRadius:8, padding:"8px 12px" }}>
+                                  <div style={{ fontSize:10, color:"#9CA3AF", marginBottom:2 }}>{label}</div>
+                                  <div style={{ fontSize:12, color:"#1A1A1A", fontWeight:500, wordBreak:"break-word" }}>
+                                    {(s[key]||"").startsWith("http")
+                                      ? <a href={s[key]} target="_blank" rel="noreferrer" style={{ color:"#1E40AF", textDecoration:"none" }}>Open link ↗</a>
+                                      : s[key]}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })}
+
+                      {/* Long text fields */}
+                      {s.desc_long && <div style={{ marginBottom:16 }}><div style={{ fontSize:10, fontWeight:700, color:"#9D174D", textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:6 }}>Press Note</div><div style={{ fontSize:12, color:"#374151", lineHeight:1.7, background:"#fff", border:"1px solid #F3F4F6", borderRadius:8, padding:"12px 14px" }}>{s.desc_long}</div></div>}
+                      {s.special_notes && <div style={{ marginBottom:16 }}><div style={{ fontSize:10, fontWeight:700, color:"#9D174D", textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:6 }}>Special Notes</div><div style={{ fontSize:12, color:"#374151", lineHeight:1.7, background:"#fff", border:"1px solid #F3F4F6", borderRadius:8, padding:"12px 14px" }}>{s.special_notes}</div></div>}
+
+                      {/* Export button */}
+                      <div style={{ display:"flex", justifyContent:"flex-end", marginTop:8 }}>
+                        <button onClick={()=>{
+                          // Generate beautiful print report
+                          const win = window.open('','_blank');
+                          const song = s.song_title||"Untitled";
+                          const artist = s.primary_name_1||s.primary_legal_1||"—";
+                          const date = new Date().toLocaleDateString("en-IN",{day:"numeric",month:"long",year:"numeric"});
+
+                          const sections = [
+                            { title:"Track Details", fields:[["Song Title","song_title"],["Release Type","release_type"],["Language","language"],["Genre","genre"],["Sub-Genre","sub_genre"],["Recording Year","recording_year"],["Target Release Month","target_release_month"],["Explicit","explicit"]] },
+                            { title:"Primary Artist", fields:[["Name","primary_name_1"],["Legal Name","primary_legal_1"],["Phone","primary_phone_1"],["Email","primary_email_1"],["DOB","primary_dob_1"],["Nationality","primary_nationality_1"],["IPRS Member","primary_iprs_1"],["IPRS Number","primary_iprs_num_1"],["Instagram","primary_instagram_1"],["YouTube","primary_youtube_1"],["Spotify","primary_spotify_1"]] },
+                            { title:"Song Credits", fields:[["Composer(s)","composer_names"],["Lyricist(s)","lyricist_names"],["Producer","producer_name"],["Recording Studio","recording_studio"],["Mix Engineer","mix_engineer"],["Mastering Engineer","mastering_engineer"]] },
+                            { title:"Rights & Distribution", fields:[["Label","label_name"],["Publisher","publisher"],["Copyright (C)","copyright_c"],["Phonographic Copyright (P)","copyright_p"],["Ownership %","ownership_pct"],["Performer Rights","performer_rights"],["Publishing Rights","publishing_rights"],["Territories","territories"],["Distribution Partner","distribution_partner"],["Audio Release Date","release_date_audio"],["Video Release Date","release_date_video"],["Pre-save Date","presave_date"],["Content ID","content_id"],["YouTube Channel","yt_channel"],["Spotify for Artists Admin","spotify_admin"]] },
+                            { title:"Supporting Files", fields:[["Audio Folder","folder_audio"],["Artwork Folder","folder_artwork"],["Video Link","folder_video"],["Docs Folder","folder_docs"],["Lyrics Folder","folder_lyrics"],["Artwork Link","artwork_link"]] },
+                            { title:"Marketing Copy", fields:[["Tagline","tagline"],["Press Quote","press_quote"],["Spotify Pitch Text","spotify_pitch"]] },
+                            { title:"Visual Assets", fields:[["Cover Art File Name","art_filename"],["Dimensions","art_dimensions"],["Design Credit","art_design_credit"],["Photography Credit","art_photo_credit"],["Copyright Line on Art","art_copyright_line"]] },
+                            { title:"Music Video", fields:[["Director","mv_director"],["DOP","mv_dop"],["Editor","mv_editor"],["Compositing/VFX","mv_compositing"],["YouTube Thumbnail","mv_thumbnail"],["Spotify Canvas","mv_canvas"],["Copyright Line on Video","mv_copyright_line"]] },
+                          ];
+
+                          const sectionHTML = sections.map(sec=>{
+                            const rows = sec.fields.filter(([,k])=>s[k]&&s[k].trim());
+                            if(!rows.length) return "";
+                            return `<div class="section"><div class="section-title">${sec.title}</div><table>${rows.map(([l,k])=>`<tr><td class="label">${l}</td><td class="value">${(s[k]||"").startsWith("http")?`<a href="${s[k]}">${s[k]}</a>`:s[k]}</td></tr>`).join("")}</table></div>`;
+                          }).join("");
+
+                          const longFields = [
+                            s.desc_short ? `<div class="section"><div class="section-title">Short Description (for stores)</div><p class="long-text">${s.desc_short}</p></div>` : "",
+                            s.desc_long  ? `<div class="section"><div class="section-title">Press Note / Long Description</div><p class="long-text">${s.desc_long}</p></div>` : "",
+                            s.special_notes ? `<div class="section"><div class="section-title">Special Notes</div><p class="long-text">${s.special_notes}</p></div>` : "",
+                            s.lyrics ? `<div class="section"><div class="section-title">Lyrics</div><p class="long-text" style="font-family:serif;line-height:2">${s.lyrics.replace(/
+/g,"<br/>")}</p></div>` : "",
+                          ].join("");
+
+                          win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Release Metadata — ${song}</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:'DM Sans',sans-serif; color:#1a1410; background:#fff; font-size:11pt; }
+  .page { max-width:210mm; margin:0 auto; padding:20mm 18mm; }
+  .header { display:flex; align-items:center; justify-content:space-between; padding-bottom:16px; border-bottom:2px solid #000; margin-bottom:24px; }
+  .header-left h1 { font-family:'DM Serif Display',serif; font-size:22pt; font-weight:400; line-height:1.2; }
+  .header-left p { font-size:11pt; color:#6B7280; margin-top:4px; }
+  .header-right { text-align:right; font-size:9pt; color:#6B7280; }
+  .header-right .label-logo { font-family:'DM Serif Display',serif; font-size:13pt; color:#9D174D; font-weight:400; }
+  .meta-strip { display:flex; gap:24px; background:#f5f0eb; border-radius:8px; padding:12px 16px; margin-bottom:24px; flex-wrap:wrap; }
+  .meta-item .k { font-size:8pt; font-weight:700; color:#9CA3AF; text-transform:uppercase; letter-spacing:0.08em; }
+  .meta-item .v { font-size:10pt; font-weight:600; color:#1a1410; margin-top:2px; }
+  .status-pill { display:inline-block; background:#9D174D; color:#fff; font-size:9pt; font-weight:700; border-radius:99px; padding:2px 12px; }
+  .section { margin-bottom:20px; page-break-inside:avoid; }
+  .section-title { font-size:9pt; font-weight:700; color:#9D174D; text-transform:uppercase; letter-spacing:0.1em; border-bottom:1px solid #f0e8e0; padding-bottom:5px; margin-bottom:10px; }
+  table { width:100%; border-collapse:collapse; }
+  tr:nth-child(even) td { background:#faf8f5; }
+  td { padding:5px 8px; vertical-align:top; }
+  .label { font-size:9pt; color:#6B7280; width:38%; font-weight:500; }
+  .value { font-size:9pt; color:#1a1410; font-weight:500; }
+  .value a { color:#1E40AF; }
+  .long-text { font-size:10pt; color:#374151; line-height:1.7; padding:10px 12px; background:#faf8f5; border-radius:6px; }
+  .footer { margin-top:32px; padding-top:12px; border-top:1px solid #e5e7eb; display:flex; justify-content:space-between; font-size:8pt; color:#9CA3AF; }
+  @media print { body { print-color-adjust:exact; -webkit-print-color-adjust:exact; } }
+</style></head><body><div class="page">
+  <div class="header">
+    <div class="header-left">
+      <h1>${song}</h1>
+      <p>${artist}</p>
+    </div>
+    <div class="header-right">
+      <div class="label-logo">Artium Originals</div>
+      <div style="margin-top:4px">Release Metadata</div>
+      <div style="margin-top:2px">${date}</div>
+      <div style="margin-top:6px"><span class="status-pill">${status}</span></div>
+    </div>
+  </div>
+  <div class="meta-strip">
+    ${[["Release Type",s.release_type],["Language",s.language],["Genre",s.genre],["Target Release",s.target_release_month],["Submitted",(s.submittedAt||"").slice(0,10)]].filter(([,v])=>v).map(([k,v])=>`<div class="meta-item"><div class="k">${k}</div><div class="v">${v}</div></div>`).join("")}
+  </div>
+  ${sectionHTML}${longFields}
+  <div class="footer"><span>Artium Academy — Confidential</span><span>Generated ${date}</span></div>
+</div><script>window.onload=()=>{ window.print(); }<\/script></body></html>`);
+                          win.document.close();
+                        }}
+                        style={{ background:"linear-gradient(135deg,#1A1A1A,#374151)", border:"none", borderRadius:8, color:"#fff", padding:"8px 18px", fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>
+                        Export / Print PDF
+                      </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })}

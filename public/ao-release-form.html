@@ -599,9 +599,40 @@ async function handleSubmit(e) {
 
   try {
     if (SCRIPT_URL && SCRIPT_URL !== 'YOUR_APPS_SCRIPT_URL_HERE') {
+      // Use no-cors iframe trick to avoid CORS issues with Apps Script
       const params = new URLSearchParams({ sheet: SHEET_NAME, ...data });
-      await fetch(SCRIPT_URL, { method: 'POST', body: params });
+      
+      // Create a hidden iframe and form to submit
+      const iframe = document.createElement('iframe');
+      iframe.name = 'hidden_iframe';
+      iframe.style.display = 'none';
+      document.body.appendChild(iframe);
+      
+      const hiddenForm = document.createElement('form');
+      hiddenForm.method = 'POST';
+      hiddenForm.action = SCRIPT_URL;
+      hiddenForm.target = 'hidden_iframe';
+      hiddenForm.style.display = 'none';
+      
+      for (const [key, value] of params.entries()) {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = key;
+        input.value = value;
+        hiddenForm.appendChild(input);
+      }
+      
+      document.body.appendChild(hiddenForm);
+      hiddenForm.submit();
+      
+      // Wait a moment then show success
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      // Cleanup
+      document.body.removeChild(iframe);
+      document.body.removeChild(hiddenForm);
     }
+    
     document.getElementById('releaseForm').style.display = 'none';
     document.querySelector('.admin-bar').style.display = 'none';
     document.getElementById('adminPanel').style.display = 'none';

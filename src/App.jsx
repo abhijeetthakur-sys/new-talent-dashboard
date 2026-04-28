@@ -3745,7 +3745,7 @@ function OriginalsSection({ data, canEdit, onUpdate, period, ytApiKey, airtableC
   const [rmLoading, setRmLoading] = React.useState(false);
   const [rmError, setRmError] = React.useState("");
   const [rmQ, setRmQ] = React.useState("");
-  const RM_SHEET_ID = "1LceHmgfvhgPXJNYZpSnIJ7ePYwpFwjNa7BlrMt-PUcg";
+  const RM_SHEET_ID = "1kB80SrX2r_LQXnFzB78dJ_hOgMIBVk9pvwoN7ZOSSsc";
   const RM_FORM_URL = "https://talent-originals.vercel.app/ao-release-form.html";
   const RM_SHEET_URL = `https://docs.google.com/spreadsheets/d/${RM_SHEET_ID}`;
   const RM_STAGES = ["Received","Under Review","Approved","In Production","Released","On Hold","Rejected"];

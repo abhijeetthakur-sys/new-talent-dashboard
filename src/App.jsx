@@ -4705,7 +4705,7 @@ function OriginalsSection({ data, canEdit, onUpdate, period, ytApiKey, airtableC
                             s.desc_short ? `<div class="section"><div class="section-title">Short Description (for stores)</div><p class="long-text">${s.desc_short}</p></div>` : "",
                             s.desc_long  ? `<div class="section"><div class="section-title">Press Note / Long Description</div><p class="long-text">${s.desc_long}</p></div>` : "",
                             s.special_notes ? `<div class="section"><div class="section-title">Special Notes</div><p class="long-text">${s.special_notes}</p></div>` : "",
-                            s.lyrics ? `<div class="section"><div class="section-title">Lyrics</div><p class="long-text" style="font-family:serif;line-height:2">${s.lyrics.replace(/
+                            s.lyrics ? `<div class="section"><div class="section-title">Lyrics</div><p class="long-text" style="font-family:serif;line-height:2">${s.lyrics.split("\n").join("<br/>")
 /g,"<br/>")}</p></div>` : "",
                           ].join("");
 

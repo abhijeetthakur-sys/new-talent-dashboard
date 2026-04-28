@@ -3740,6 +3740,55 @@ function OriginalsSection({ data, canEdit, onUpdate, period, ytApiKey, airtableC
     } catch(e) { console.error("Status update failed", e); }
   }
 
+  // ── Release Metadata submissions ──
+  const [rmSubmissions, setRmSubmissions] = React.useState([]);
+  const [rmLoading, setRmLoading] = React.useState(false);
+  const [rmError, setRmError] = React.useState("");
+  const [rmQ, setRmQ] = React.useState("");
+
+  const RM_SHEET_ID = "1LceHmgfvhgPXJNYZpSnIJ7ePYwpFwjNa7BlrMt-PUcg";
+  const RM_FORM_URL = "https://talent-originals.vercel.app/ao-release-form.html";
+  const RM_SHEET_URL = `https://docs.google.com/spreadsheets/d/${RM_SHEET_ID}`;
+  const RM_STAGES = ["Received","Under Review","Approved","In Production","Released","On Hold","Rejected"];
+  const RM_STAGE_COLORS = { "Received":"#1E40AF","Under Review":"#B45309","Approved":"#047857","In Production":"#6D28D9","Released":"#065F46","On Hold":"#6B7280","Rejected":"#DC2626" };
+
+  async function loadRmSubmissions(token) {
+    if (!token) { setRmError("Sign in to Google Drive to load submissions"); return; }
+    setRmLoading(true); setRmError("");
+    try {
+      const range = encodeURIComponent("Release Metadata!A:AZ");
+      const res = await fetch(
+        `https://sheets.googleapis.com/v4/spreadsheets/${RM_SHEET_ID}/values/${range}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      if (!res.ok) { setRmError("Could not load sheet — check permissions"); setRmLoading(false); return; }
+      const json = await res.json();
+      const rows = json.values || [];
+      if (rows.length < 2) { setRmSubmissions([]); setRmLoading(false); return; }
+      const headers = rows[0].map(h => (h||"").trim());
+      const parsed = rows.slice(1).map((row, i) => {
+        const obj = { _rowIndex: i + 2 };
+        headers.forEach((h, hi) => { obj[h] = row[hi] || ""; });
+        if (!obj.rm_status) obj.rm_status = "Received";
+        return obj;
+      }).filter(r => r["song_title"] || r["primary_name_1"] || r["submittedAt"]);
+      setRmSubmissions(parsed);
+    } catch(e) { setRmError("Error loading data"); }
+    setRmLoading(false);
+  }
+
+  async function updateRmStatus(rowIndex, newStatus, token) {
+    if (!token) return;
+    try {
+      const range = encodeURIComponent(`Release Metadata!B${rowIndex}`);
+      await fetch(
+        `https://sheets.googleapis.com/v4/spreadsheets/${RM_SHEET_ID}/values/${range}?valueInputOption=RAW`,
+        { method: "PUT", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ values: [[newStatus]] }) }
+      );
+      setRmSubmissions(prev => prev.map(s => s._rowIndex === rowIndex ? { ...s, rm_status: newStatus } : s));
+    } catch(e) { console.error("RM status update failed", e); }
+  }
+
   const flagship   = data.flagship   || [];
   const devotional = data.devotional || [];
 

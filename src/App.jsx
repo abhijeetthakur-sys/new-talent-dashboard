@@ -4583,7 +4583,7 @@ function OriginalsSection({ data, canEdit, onUpdate, period, ytApiKey, airtableC
               const linkedSong = s._linkedSong || "";
 
               return (
-                <div key={i} style={{ background:"#fff", border:`1px solid ${isExp?"rgba(157,23,77,0.3)":"#E5E7EB"}`, borderRadius:12, overflow:"hidden", boxShadow:isExp?"0 4px 20px rgba(157,23,77,0.08)":"none" }}>
+                <div key={i} style={{ background:"#fff", border:`1px solid ${isExp?"rgba(157,23,77,0.3)":"#E5E7EB"}`, borderRadius:12, boxShadow:isExp?"0 4px 20px rgba(157,23,77,0.08)":"none" }}>
                   {/* Card header — always visible */}
                   <div style={{ padding:"14px 18px", cursor:"pointer" }}
                     onClick={()=>setRmExpanded(isExp?null:i)}>
@@ -18100,4 +18100,3 @@ function RSVPLiveFeed({ data, notifLog, rsvpUrl, onClose }) {
     </div>
   );
 }
-// Tue Apr 28 21:25:52 IST 2026

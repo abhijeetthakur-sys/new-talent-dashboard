@@ -4612,6 +4612,11 @@ function OriginalsSection({ data, canEdit, onUpdate, period, ytApiKey, airtableC
                       </div>
                     </div>
                   </div>
+                  {/* Expand bar */}
+                  <div style={{ background: isExp?"rgba(157,23,77,0.04)":"rgba(0,0,0,0.02)", borderTop:"1px solid rgba(0,0,0,0.05)", padding:"7px 18px", display:"flex", alignItems:"center", justifyContent:"center", gap:6, cursor:"pointer", fontSize:11, color:"#9CA3AF", fontWeight:600 }}
+                    onClick={()=>setRmExpanded(isExp?null:i)}>
+                    {isExp ? "▲ Collapse" : "▼ View full metadata"}
+                  </div>
 
                   {/* Expanded full metadata */}
                   {isExp && (

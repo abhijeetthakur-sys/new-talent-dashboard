@@ -4503,6 +4503,140 @@ function OriginalsSection({ data, canEdit, onUpdate, period, ytApiKey, airtableC
         </>
       )}
 
+      {/* ── METADATA TAB ── */}
+      {tab==="Metadata" && (
+        <div>
+          {/* Header */}
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:18, flexWrap:"wrap", gap:10 }}>
+            <div>
+              <div style={{ fontSize:15, fontWeight:800, color:"#1A1A1A" }}>Release Metadata Submissions</div>
+              <div style={{ fontSize:12, color:"#6B7280", marginTop:2 }}>All release types — Teacher Series, Student Originals, External Artists</div>
+            </div>
+            <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+              <a href={RM_FORM_URL} target="_blank" rel="noreferrer"
+                style={{ display:"inline-flex", alignItems:"center", gap:5, background:"linear-gradient(135deg,#9D174D,#7C1240)", border:"none", borderRadius:8, color:"#fff", padding:"7px 13px", fontSize:12, fontWeight:700, cursor:"pointer", textDecoration:"none" }}>
+                Open Submission Form
+              </a>
+              <a href={RM_SHEET_URL} target="_blank" rel="noreferrer"
+                style={{ display:"inline-flex", alignItems:"center", gap:5, background:"rgba(4,120,87,0.1)", border:"1px solid rgba(4,120,87,0.25)", borderRadius:8, color:"#065F46", padding:"7px 13px", fontSize:12, fontWeight:700, cursor:"pointer", textDecoration:"none" }}>
+                Open Sheet
+              </a>
+              <button onClick={()=>loadRmSubmissions(accessToken)} disabled={rmLoading}
+                style={{ background:"#F9FAFB", border:"1px solid #E5E7EB", borderRadius:8, color:"#374151", padding:"7px 13px", fontSize:12, fontWeight:700, cursor:rmLoading?"wait":"pointer", fontFamily:"inherit" }}>
+                {rmLoading ? "Loading…" : "⟳ Refresh"}
+              </button>
+            </div>
+          </div>
+
+          {/* Stage pipeline counts */}
+          {rmSubmissions.length > 0 && (
+            <div style={{ display:"flex", gap:8, overflowX:"auto", paddingBottom:4, marginBottom:18 }}>
+              {RM_STAGES.map(stage => {
+                const count = rmSubmissions.filter(s=>(s.rm_status||"Received")===stage).length;
+                const color = RM_STAGE_COLORS[stage] || "#6B7280";
+                return (
+                  <div key={stage} style={{ flex:"0 0 auto", minWidth:110, background:"#fff", border:`1px solid ${color}22`, borderTop:`3px solid ${color}`, borderRadius:10, padding:"11px 12px", textAlign:"center" }}>
+                    <div style={{ fontFamily:"monospace", fontSize:20, fontWeight:800, color }}>{count}</div>
+                    <div style={{ fontSize:10, color:"#6B7280", marginTop:3, lineHeight:1.4 }}>{stage}</div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Error */}
+          {rmError && <div style={{ background:"rgba(220,38,38,0.06)", border:"1px solid rgba(220,38,38,0.2)", borderRadius:10, padding:"14px 18px", marginBottom:16, fontSize:13, color:"#DC2626" }}>{rmError}</div>}
+
+          {/* Empty state */}
+          {!rmLoading && !rmError && rmSubmissions.length === 0 && (
+            <div style={{ background:"rgba(157,23,77,0.04)", border:"1px solid rgba(157,23,77,0.12)", borderRadius:14, padding:"32px 24px", textAlign:"center" }}>
+              <div style={{ fontSize:15, fontWeight:700, color:"#1A1A1A", marginBottom:6 }}>No metadata submissions yet</div>
+              <div style={{ fontSize:13, color:"#6B7280", marginBottom:18 }}>
+                {accessToken ? "Click Refresh to pull from the Google Sheet." : "Sign in to Google Drive then click Refresh."}
+              </div>
+              <button onClick={()=>loadRmSubmissions(accessToken)} disabled={rmLoading}
+                style={{ background:"linear-gradient(135deg,#9D174D,#7C1240)", border:"none", borderRadius:8, color:"#fff", padding:"10px 22px", fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>
+                Load Submissions
+              </button>
+            </div>
+          )}
+
+          {/* Search */}
+          {rmSubmissions.length > 0 && (
+            <div style={{ marginBottom:14 }}>
+              <input value={rmQ} onChange={e=>setRmQ(e.target.value)} placeholder="Search by song title, artist name, release type…"
+                style={{ width:"100%", background:"#F9FAFB", border:"1px solid #E5E7EB", borderRadius:8, padding:"8px 14px", fontSize:13, fontFamily:"inherit", outline:"none", color:"#1A1A1A" }} />
+            </div>
+          )}
+
+          {/* Submissions list */}
+          {(()=>{
+            let rows = rmSubmissions;
+            if (rmQ.trim().length > 1) {
+              const q = rmQ.toLowerCase();
+              rows = rows.filter(s =>
+                (s.song_title||"").toLowerCase().includes(q) ||
+                (s.primary_name_1||"").toLowerCase().includes(q) ||
+                (s.release_type||"").toLowerCase().includes(q) ||
+                (s.language||"").toLowerCase().includes(q)
+              );
+            }
+            return (
+              <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+                {rows.map((s, i) => {
+                  const status = s.rm_status || "Received";
+                  const stColor = RM_STAGE_COLORS[status] || "#6B7280";
+                  const artist = s.primary_name_1 || s.primary_legal_1 || "—";
+                  const song = s.song_title || "Untitled";
+                  const date = (s.submittedAt||"").slice(0,10) || "—";
+                  return (
+                    <div key={i} style={{ background:"#fff", border:"1px solid #E5E7EB", borderRadius:12, padding:"14px 18px" }}
+                      onMouseEnter={e=>e.currentTarget.style.borderColor="rgba(157,23,77,0.25)"}
+                      onMouseLeave={e=>e.currentTarget.style.borderColor="#E5E7EB"}>
+                      <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:12, flexWrap:"wrap" }}>
+                        <div style={{ flex:1, minWidth:200 }}>
+                          <div style={{ fontSize:14, fontWeight:800, color:"#1A1A1A" }}>{song}</div>
+                          <div style={{ fontSize:12, color:"#6B7280", marginTop:2 }}>{artist}</div>
+                          <div style={{ display:"flex", gap:8, marginTop:6, flexWrap:"wrap" }}>
+                            {s.release_type && <span style={{ fontSize:10, background:"rgba(157,23,77,0.08)", color:"#9D174D", borderRadius:5, padding:"2px 7px", fontWeight:700 }}>{s.release_type}</span>}
+                            {s.language && <span style={{ fontSize:10, background:"rgba(0,0,0,0.04)", color:"#6B7280", borderRadius:5, padding:"2px 7px" }}>{s.language}</span>}
+                            {s.genre && <span style={{ fontSize:10, background:"rgba(0,0,0,0.04)", color:"#6B7280", borderRadius:5, padding:"2px 7px" }}>{s.genre}</span>}
+                            <span style={{ fontSize:10, color:"#9CA3AF" }}>{date}</span>
+                          </div>
+                          {(s.composer_names||s.producer_name) && (
+                            <div style={{ fontSize:11, color:"#9CA3AF", marginTop:4 }}>
+                              {s.composer_names && `Composer: ${s.composer_names}`}
+                              {s.composer_names && s.producer_name && " · "}
+                              {s.producer_name && `Producer: ${s.producer_name}`}
+                            </div>
+                          )}
+                          {s.artwork_link && (
+                            <a href={s.artwork_link} target="_blank" rel="noreferrer" style={{ fontSize:11, color:"#1E40AF", fontWeight:700, textDecoration:"none", marginTop:4, display:"inline-block" }}>🖼 Artwork</a>
+                          )}
+                        </div>
+                        <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:8 }}>
+                          {canEdit ? (
+                            <select value={status} onChange={e=>updateRmStatus(s._rowIndex, e.target.value, accessToken)}
+                              style={{ background:`${stColor}12`, border:`1px solid ${stColor}40`, borderRadius:7, color:stColor, padding:"5px 10px", fontSize:11, fontWeight:700, fontFamily:"inherit", outline:"none", cursor:"pointer" }}>
+                              {RM_STAGES.map(st=><option key={st} value={st} style={{ background:"#fff", color:"#1A1A1A" }}>{st}</option>)}
+                            </select>
+                          ) : (
+                            <span style={{ fontSize:11, background:`${stColor}12`, color:stColor, borderRadius:5, padding:"3px 8px", fontWeight:700 }}>{status}</span>
+                          )}
+                          {s.target_release_month && <span style={{ fontSize:11, color:"#6B7280" }}>Target: {s.target_release_month}</span>}
+                        </div>
+                      </div>
+                      {s.special_notes && <div style={{ marginTop:10, paddingTop:10, borderTop:"1px solid rgba(0,0,0,0.04)", fontSize:12, color:"#6B7280", lineHeight:1.6 }}>{s.special_notes}</div>}
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
+        </div>
+      )}
+
+
       {/* Flagship form modal */}
       {modal?.type==="flagship" && (
         <Modal title={modal.idx!==null?"Edit Original":"Add Flagship Original"} onClose={close} wide>

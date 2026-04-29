@@ -4685,7 +4685,7 @@ function OriginalsSection({ data, canEdit, onUpdate, period, ytApiKey, airtableC
                           const date = new Date().toLocaleDateString("en-IN",{day:"numeric",month:"long",year:"numeric"});
 
                           const sections = [
-                            { title:"Track Details", fields:[["Song Title","song_title"],["Release Type","release_type"],["Language","language"],["Genre","genre"],["Sub-Genre","sub_genre"],["Recording Year","recording_year"],["Target Release Month","target_release_month"],["Explicit","explicit"]] },
+                            { title:"Track Details", fields:[["Song Title","song_title"],["Release Type","release_type"],["Language","language"],["Genre","genre"],["Sub-Genre","sub_genre"],["Recording Year","recording_year"],["Target Release Month","target_release_month"],["Explicit","explicit"],["Is Original","is_original"],["Traditional Source","traditional_source"]] },
                             { title:"Primary Artist", fields:[["Name","primary_name_1"],["Legal Name","primary_legal_1"],["Phone","primary_phone_1"],["Email","primary_email_1"],["DOB","primary_dob_1"],["Nationality","primary_nationality_1"],["IPRS Member","primary_iprs_1"],["IPRS Number","primary_iprs_num_1"],["Instagram","primary_instagram_1"],["YouTube","primary_youtube_1"],["Spotify","primary_spotify_1"]] },
                             { title:"Song Credits", fields:[["Composer(s)","composer_names"],["Lyricist(s)","lyricist_names"],["Producer","producer_name"],["Recording Studio","recording_studio"],["Mix Engineer","mix_engineer"],["Mastering Engineer","mastering_engineer"]] },
                             { title:"Rights & Distribution", fields:[["Label","label_name"],["Publisher","publisher"],["Copyright (C)","copyright_c"],["Phonographic Copyright (P)","copyright_p"],["Ownership %","ownership_pct"],["Performer Rights","performer_rights"],["Publishing Rights","publishing_rights"],["Territories","territories"],["Distribution Partner","distribution_partner"],["Audio Release Date","release_date_audio"],["Video Release Date","release_date_video"],["Pre-save Date","presave_date"],["Content ID","content_id"],["YouTube Channel","yt_channel"],["Spotify for Artists Admin","spotify_admin"]] },
@@ -4695,18 +4695,23 @@ function OriginalsSection({ data, canEdit, onUpdate, period, ytApiKey, airtableC
                             { title:"Music Video", fields:[["Director","mv_director"],["DOP","mv_dop"],["Editor","mv_editor"],["Compositing/VFX","mv_compositing"],["YouTube Thumbnail","mv_thumbnail"],["Spotify Canvas","mv_canvas"],["Copyright Line on Video","mv_copyright_line"]] },
                           ];
 
+                          // Long text and bio sections
+                          const longSections = [
+                            s.desc_short   ? \`<div class="section"><div class="section-title">Short Description (for stores)</div><p class="long-text">\${s.desc_short}</p></div>\` : "",
+                            s.desc_long    ? \`<div class="section"><div class="section-title">Press Note / Long Description</div><p class="long-text">\${s.desc_long}</p></div>\` : "",
+                            s.song_description ? \`<div class="section"><div class="section-title">Song Description</div><p class="long-text">\${s.song_description}</p></div>\` : "",
+                            s.primary_bio_1 ? \`<div class="section"><div class="section-title">Artist Bio</div><p class="long-text">\${s.primary_bio_1}</p></div>\` : "",
+                            s.special_notes ? \`<div class="section"><div class="section-title">Special Notes</div><p class="long-text">\${s.special_notes}</p></div>\` : "",
+                            s.lyrics       ? \`<div class="section"><div class="section-title">Lyrics</div><p class="long-text" style="font-family:serif;line-height:2">\${s.lyrics.split("\n").join("<br/>")}</p></div>\` : "",
+                          ].join("");
+
                           const sectionHTML = sections.map(sec=>{
                             const rows = sec.fields.filter(([,k])=>s[k]&&s[k].trim());
                             if(!rows.length) return "";
                             return `<div class="section"><div class="section-title">${sec.title}</div><table>${rows.map(([l,k])=>`<tr><td class="label">${l}</td><td class="value">${(s[k]||"").startsWith("http")?`<a href="${s[k]}">${s[k]}</a>`:s[k]}</td></tr>`).join("")}</table></div>`;
                           }).join("");
 
-                          const longFields = [
-                            s.desc_short ? `<div class="section"><div class="section-title">Short Description (for stores)</div><p class="long-text">${s.desc_short}</p></div>` : "",
-                            s.desc_long  ? `<div class="section"><div class="section-title">Press Note / Long Description</div><p class="long-text">${s.desc_long}</p></div>` : "",
-                            s.special_notes ? `<div class="section"><div class="section-title">Special Notes</div><p class="long-text">${s.special_notes}</p></div>` : "",
-                            s.lyrics ? `<div class="section"><div class="section-title">Lyrics</div><p class="long-text" style="font-family:serif;line-height:2">${s.lyrics.split("\n").join("<br/>")}</p></div>` : "",
-                          ].join("");
+                          // longFields now merged into longSections above
 
                           win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Release Metadata — ${song}</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -4750,7 +4755,7 @@ function OriginalsSection({ data, canEdit, onUpdate, period, ytApiKey, airtableC
   <div class="meta-strip">
     ${[["Release Type",s.release_type],["Language",s.language],["Genre",s.genre],["Target Release",s.target_release_month],["Submitted",(s.submittedAt||"").slice(0,10)]].filter(([,v])=>v).map(([k,v])=>`<div class="meta-item"><div class="k">${k}</div><div class="v">${v}</div></div>`).join("")}
   </div>
-  ${sectionHTML}${longFields}
+  ${sectionHTML}${longSections}
   <div class="footer"><span>Artium Academy — Confidential</span><span>Generated ${date}</span></div>
 </div><script>window.onload=()=>{ window.print(); }<\/script></body></html>`);
                           win.document.close();

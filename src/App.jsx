@@ -4697,12 +4697,12 @@ function OriginalsSection({ data, canEdit, onUpdate, period, ytApiKey, airtableC
 
                           // Long text and bio sections
                           const longSections = [
-                            s.desc_short   ? \`<div class="section"><div class="section-title">Short Description (for stores)</div><p class="long-text">\${s.desc_short}</p></div>\` : "",
-                            s.desc_long    ? \`<div class="section"><div class="section-title">Press Note / Long Description</div><p class="long-text">\${s.desc_long}</p></div>\` : "",
-                            s.song_description ? \`<div class="section"><div class="section-title">Song Description</div><p class="long-text">\${s.song_description}</p></div>\` : "",
-                            s.primary_bio_1 ? \`<div class="section"><div class="section-title">Artist Bio</div><p class="long-text">\${s.primary_bio_1}</p></div>\` : "",
-                            s.special_notes ? \`<div class="section"><div class="section-title">Special Notes</div><p class="long-text">\${s.special_notes}</p></div>\` : "",
-                            s.lyrics       ? \`<div class="section"><div class="section-title">Lyrics</div><p class="long-text" style="font-family:serif;line-height:2">\${s.lyrics.split("\n").join("<br/>")}</p></div>\` : "",
+                            s.desc_short   ? `<div class="section"><div class="section-title">Short Description (for stores)</div><p class="long-text">\${s.desc_short}</p></div>` : "",
+                            s.desc_long    ? `<div class="section"><div class="section-title">Press Note / Long Description</div><p class="long-text">\${s.desc_long}</p></div>` : "",
+                            s.song_description ? `<div class="section"><div class="section-title">Song Description</div><p class="long-text">\${s.song_description}</p></div>` : "",
+                            s.primary_bio_1 ? `<div class="section"><div class="section-title">Artist Bio</div><p class="long-text">\${s.primary_bio_1}</p></div>` : "",
+                            s.special_notes ? `<div class="section"><div class="section-title">Special Notes</div><p class="long-text">\${s.special_notes}</p></div>` : "",
+                            s.lyrics       ? `<div class="section"><div class="section-title">Lyrics</div><p class="long-text" style="font-family:serif;line-height:2">\${s.lyrics.split("\n").join("<br/>")}</p></div>` : "",
                           ].join("");
 
                           const sectionHTML = sections.map(sec=>{
@@ -7460,14 +7460,14 @@ function ChatSection({ data, anthropicKey, onUpdate }) {
 2. ACTION MODE: When the user asks you to make a change, return a JSON action block.
 
 IMPORTANT: When making changes, ALWAYS respond with a JSON block in this exact format:
-\`\`\`action
+```action
 {
   "description": "Human-readable summary of what you're doing",
   "type": "update_student" | "add_student" | "update_originals" | "update_devotional" | "add_devotional" | "update_unmute_perf",
   "data": { ... the specific fields to update/add ... },
   "target": { ... how to find the item, e.g. "name": "Vinisha" ... }
 }
-\`\`\`
+```
 
 Supported action types:
 - update_student: Update any student field. target: {name: "..."}, data: {contract: true, stream: "...", teacher: "...", status: "...", city: "...", phone: "...", notes: "..."}

@@ -1356,8 +1356,8 @@ function ATDPSection({ data, canEdit, canMarkAtt, onUpdate, period, anthropicKey
         sessions.forEach(ns => {
           const idx = merged.findIndex(e => e.name === ns.name && e.date === ns.date);
           if (idx >= 0) {
-            const combined = [...(merged[idx].rsvps||[])];
-            (ns.rsvps||[]).forEach(nr => {
+            const combined = [...merged[idx].rsvps];
+            ns.rsvps.forEach(nr => {
               if (!combined.some(r => r.email === nr.email || (r.phone && r.phone === nr.phone))) combined.push(nr);
             });
             merged[idx] = { ...merged[idx], rsvps: combined, lastUpdated: new Date().toISOString() };
@@ -1649,7 +1649,7 @@ function PlanningPipelineBar({ stage }) {
   );
 }
 
-function UnmutePlanningSection({ data, canEdit, onUpdate, atdpStudents, onCloudSave, onCloudLoad, gdriveStatus, accessToken, onSignIn }) {
+function UnmutePlanningSection({ data, canEdit, onUpdate, atdpStudents }) {
   const planning = data.planning || [];
   const [activeIdx, setActiveIdx] = useState(0);
   const [modal, setModal] = useState(null);
@@ -1711,206 +1711,21 @@ function UnmutePlanningSection({ data, canEdit, onUpdate, atdpStudents, onCloudS
     updatePlan({...activePlan, songs: activePlan.songs.filter((_,x)=>x!==i)});
   }
 
-  // ── Checklist helpers ──
-  const TASK_PHASES = ["Pre-Production","Production","Show Day","Post-Production"];
-  const TASK_STATUSES = ["todo","in progress","done","blocked"];
-  const TASK_STATUS_COLORS = { "todo":"#6B7280","in progress":"#B45309","done":"#047857","blocked":"#DC2626" };
-
-  const DEFAULT_CHECKLIST = [
-    // Pre-Production
-    { id:"t1", phase:"Pre-Production", task:"Lock artists (solos + duets)", owner:"", due:"", status:"todo", notes:"" },
-    { id:"t2", phase:"Pre-Production", task:"Finalise song list (keys, BPM, arrangement)", owner:"", due:"", status:"todo", notes:"" },
-    { id:"t3", phase:"Pre-Production", task:"Send song pack to music director", owner:"", due:"", status:"todo", notes:"" },
-    { id:"t4", phase:"Pre-Production", task:"Scratch v1 (piano/click) for all tracks", owner:"", due:"", status:"todo", notes:"" },
-    { id:"t5", phase:"Pre-Production", task:"Reference vocals on scratches", owner:"", due:"", status:"todo", notes:"" },
-    { id:"t6", phase:"Pre-Production", task:"Share scratches + guides with artists", owner:"", due:"", status:"todo", notes:"" },
-    { id:"t7", phase:"Pre-Production", task:"Zoom Rehearsal #1 (solos)", owner:"", due:"", status:"todo", notes:"" },
-    { id:"t8", phase:"Pre-Production", task:"Zoom Rehearsal #2 (duets)", owner:"", due:"", status:"todo", notes:"" },
-    { id:"t9", phase:"Pre-Production", task:"Lyric sheet created + distributed", owner:"", due:"", status:"todo", notes:"" },
-    { id:"t10", phase:"Pre-Production", task:"Final stems delivered (48k/24b, -14 LUFS)", owner:"", due:"", status:"todo", notes:"" },
-    // Production
-    { id:"t11", phase:"Production", task:"Venue booking + payment", owner:"", due:"", status:"todo", notes:"" },
-    { id:"t12", phase:"Production", task:"Camera vendor + crew booked", owner:"", due:"", status:"todo", notes:"" },
-    { id:"t13", phase:"Production", task:"FOH engineer + audio rentals booked", owner:"", due:"", status:"todo", notes:"" },
-    { id:"t14", phase:"Production", task:"Set design plan (annotated photo)", owner:"", due:"", status:"todo", notes:"" },
-    { id:"t15", phase:"Production", task:"Remote camera+light brief PDF", owner:"", due:"", status:"todo", notes:"" },
-    { id:"t16", phase:"Production", task:"Remote audio patch PDF", owner:"", due:"", status:"todo", notes:"" },
-    { id:"t17", phase:"Production", task:"Offline Rehearsal #1 (full stems)", owner:"", due:"", status:"todo", notes:"" },
-    { id:"t18", phase:"Production", task:"Offline Rehearsal #2 (full run)", owner:"", due:"", status:"todo", notes:"" },
-    { id:"t19", phase:"Production", task:"Remote tech check (Zoom at venue)", owner:"", due:"", status:"todo", notes:"" },
-    { id:"t20", phase:"Production", task:"Print call sheet + run-sheet", owner:"", due:"", status:"todo", notes:"" },
-    { id:"t21", phase:"Production", task:"Gear prep (cards/batteries)", owner:"", due:"", status:"todo", notes:"" },
-    { id:"t22", phase:"Production", task:"Petty cash + POs", owner:"", due:"", status:"todo", notes:"" },
-    // Show Day
-    { id:"t23", phase:"Show Day", task:"Report time + crew briefing", owner:"", due:"", status:"todo", notes:"" },
-    { id:"t24", phase:"Show Day", task:"Sound check + monitor mix", owner:"", due:"", status:"todo", notes:"" },
-    { id:"t25", phase:"Show Day", task:"Camera framing + white balance check", owner:"", due:"", status:"todo", notes:"" },
-    { id:"t26", phase:"Show Day", task:"Show run", owner:"", due:"", status:"todo", notes:"" },
-    { id:"t27", phase:"Show Day", task:"Media ingest + dual backup", owner:"", due:"", status:"todo", notes:"" },
-    // Post-Production
-    { id:"t28", phase:"Post-Production", task:"Edit + Mix", owner:"", due:"", status:"todo", notes:"" },
-    { id:"t29", phase:"Post-Production", task:"Internal review (time-coded notes)", owner:"", due:"", status:"todo", notes:"" },
-    { id:"t30", phase:"Post-Production", task:"Final master delivery (WAV + MP4)", owner:"", due:"", status:"todo", notes:"" },
-    { id:"t31", phase:"Post-Production", task:"Publish + clips (YT titles/tags)", owner:"", due:"", status:"todo", notes:"" },
-    { id:"t32", phase:"Post-Production", task:"Retro + metrics (watch %, comments)", owner:"", due:"", status:"todo", notes:"" },
-  ];
-
-  function getChecklist() { return activePlan?.checklist || DEFAULT_CHECKLIST.map(t=>({...t, id:`t${Date.now()}${Math.random().toString(36).slice(2,5)}`+t.id})); }
-  function saveTask(idx, updates) {
-    const tasks = [...getChecklist()];
-    tasks[idx] = {...tasks[idx], ...updates};
-    updatePlan({...activePlan, checklist: tasks});
-  }
-  function addTask(phase) {
-    const tasks = [...getChecklist(), { id:`t${Date.now()}`, phase, task:"", owner:"", due:"", status:"todo", notes:"" }];
-    updatePlan({...activePlan, checklist: tasks});
-  }
-  function deleteTask(idx) {
-    updatePlan({...activePlan, checklist: getChecklist().filter((_,i)=>i!==idx)});
-  }
-
-  // ── Vendor helpers ──
-  const VENDOR_ROLES = ["Camera & Lighting","Sound Engineer","Venue","Catering","Set Design","Transportation","Other"];
-  const PAYMENT_STATUSES = ["Not started","Advance given","Partial payment","Paid in full"];
-
-  function getVendors() { return activePlan?.vendors || []; }
-  function saveVendor(idx, updates) {
-    const vendors = [...getVendors()];
-    if(idx === null) vendors.push({id:`v${Date.now()}`, role:"", name:"", contact:"", service:"", rate:"", paymentStatus:"Not started", advancePaid:"", oncitePOC:"", notes:""});
-    else vendors[idx] = {...vendors[idx], ...updates};
-    updatePlan({...activePlan, vendors});
-    if(idx === null) close();
-  }
-  function deleteVendor(idx) {
-    updatePlan({...activePlan, vendors: getVendors().filter((_,i)=>i!==idx)});
-  }
-
-  // ── Deliverables helpers ──
-  const DELIVERABLE_STATUSES = ["Pending","Received","Under Review","Approved","Revision Requested","Overdue"];
-  const DELIVERABLE_STATUS_COLORS = {
-    "Pending":"#6B7280","Received":"#1E40AF","Under Review":"#B45309",
-    "Approved":"#047857","Revision Requested":"#7C3AED","Overdue":"#DC2626"
-  };
-  const DEFAULT_DELIVERABLES = [
-    // Pavan / Agency — Video Production
-    { id:"d1", item:"Raw footage handover", deadline:"", status:"Pending", driveLink:"", notes:"", assignee:"Pavan" },
-    { id:"d2", item:"Rough cut (first edit)", deadline:"", status:"Pending", driveLink:"", notes:"", assignee:"Pavan" },
-    { id:"d3", item:"Final edit (colour graded)", deadline:"", status:"Pending", driveLink:"", notes:"", assignee:"Pavan" },
-    { id:"d4", item:"Final MP4 (YouTube ready)", deadline:"", status:"Pending", driveLink:"", notes:"", assignee:"Pavan" },
-    { id:"d5", item:"Short reels / clips (3–5)", deadline:"", status:"Pending", driveLink:"", notes:"", assignee:"Pavan" },
-    { id:"d6", item:"Thumbnail options (3+)", deadline:"", status:"Pending", driveLink:"", notes:"", assignee:"Pavan" },
-    { id:"d7", item:"Behind the scenes content", deadline:"", status:"Pending", driveLink:"", notes:"", assignee:"Pavan" },
-    // Akshay — Music Production
-    { id:"d8",  item:"Scratch v1 (piano/click) — all songs", deadline:"", status:"Pending", driveLink:"", notes:"", assignee:"Akshay" },
-    { id:"d9",  item:"Reference vocals on scratches", deadline:"", status:"Pending", driveLink:"", notes:"", assignee:"Akshay" },
-    { id:"d10", item:"Final stems v1 (all songs, 48k/24b)", deadline:"", status:"Pending", driveLink:"", notes:"", assignee:"Akshay" },
-    { id:"d11", item:"Stems tweaks after offline rehearsal", deadline:"", status:"Pending", driveLink:"", notes:"", assignee:"Akshay" },
-    { id:"d12", item:"Final stems v2 (show-ready)", deadline:"", status:"Pending", driveLink:"", notes:"", assignee:"Akshay" },
-    { id:"d13", item:"Audio mix + master (WAV, post-show)", deadline:"", status:"Pending", driveLink:"", notes:"", assignee:"Akshay" },
-  ];
-  function getDeliverables() { return activePlan?.deliverables || DEFAULT_DELIVERABLES.map(d=>({...d, id:`d${Date.now()}${Math.random().toString(36).slice(2,4)}`+d.id})); }
-  function saveDeliverable(idx, updates) {
-    const items = [...getDeliverables()];
-    if(idx === null) items.push({ id:`d${Date.now()}`, item:"", deadline:"", status:"Pending", driveLink:"", notes:"" });
-    else items[idx] = {...items[idx], ...updates};
-    updatePlan({...activePlan, deliverables: items});
-  }
-  function deleteDeliverable(idx) {
-    updatePlan({...activePlan, deliverables: getDeliverables().filter((_,i)=>i!==idx)});
-  }
-
   const CANDIDATE_STATUSES = ["potential","shortlisted","auditioned","confirmed","rejected"];
   const PERFORMER_TYPES = ["ATDP Student","External Student","Teacher/Mentor","Special Guest"];
 
   const candidatesByStatus = (status) => (activePlan?.candidates||[]).filter(c=>c.status===status);
   const confirmedCandidates = (activePlan?.candidates||[]).filter(c=>c.status==="confirmed");
 
-  // ── Import/Export helpers ──
-  const importRef = useRef(null);
-
-  function exportPlanning() {
-    const exportData = { planning: data.planning || [], exportedAt: new Date().toISOString(), version: 1 };
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = `unmute-planning-${new Date().toISOString().slice(0,10)}.json`;
-    a.click(); URL.revokeObjectURL(url);
-  }
-
-  function importPlanning(e) {
-    const file = e.target.files?.[0]; if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      try {
-        const parsed = JSON.parse(ev.target.result);
-        const incoming = parsed.planning || (Array.isArray(parsed) ? parsed : null);
-        if (!incoming) { alert("Invalid file — no planning data found."); return; }
-        // Merge: keep existing editions not in import, add/replace by id
-        const existing = data.planning || [];
-        const merged = [...existing];
-        incoming.forEach(inc => {
-          const idx = merged.findIndex(e => e.id === inc.id);
-          if (idx >= 0) merged[idx] = { ...merged[idx], ...inc };
-          else merged.push(inc);
-        });
-        onUpdate({ ...data, planning: merged });
-        alert(`✅ Imported ${incoming.length} edition(s). ${incoming.length > existing.length ? `${incoming.length - existing.length} new added.` : "Existing editions updated."}`);
-      } catch { alert("Could not parse file. Make sure it's a valid unMute planning JSON."); }
-    };
-    reader.readAsText(file);
-    e.target.value = "";
-  }
-
-  const cloudSynced = gdriveStatus === "synced";
-  const cloudSyncing = gdriveStatus === "syncing" || gdriveStatus === "auto-loading" || gdriveStatus === "signing-in";
-
   return (
     <div>
       {/* Header */}
-      <div style={{ marginBottom:16, paddingBottom:16, borderBottom:"1px solid #E5E7EB" }}>
-        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10 }}>
-          <div>
-            <div style={{ fontSize:17, fontWeight:800, color:"#1A1A1A" }}>🗓️ unMute Edition Planner</div>
-            <div style={{ fontSize:12, color:"#6B7280", marginTop:2 }}>Plan upcoming editions from scratch to showtime</div>
-          </div>
-          {canEdit && <button onClick={()=>setModal({type:"newEdition",form:{city:"",tentativeDate:"",venue:"",budgetNote:"",notes:""}})} style={{ background:"linear-gradient(135deg,#7C3AED,#5B21B6)", border:"none", borderRadius:9, color:"#fff", padding:"9px 18px", fontSize:13, fontWeight:800, cursor:"pointer", fontFamily:"inherit" }}>+ New Edition</button>}
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:22, paddingBottom:18, borderBottom:"1px solid #E5E7EB" }}>
+        <div>
+          <div style={{ fontSize:17, fontWeight:800, color:"#1A1A1A" }}>🗓️ unMute Edition Planner</div>
+          <div style={{ fontSize:12, color:"#6B7280", marginTop:2 }}>Plan upcoming editions from scratch to showtime</div>
         </div>
-
-        {/* Sync row */}
-        <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
-          {/* JSON Export */}
-          <button onClick={exportPlanning} style={{ display:"flex", alignItems:"center", gap:5, background:"#F9FAFB", border:"1px solid #E5E7EB", borderRadius:7, color:"#374151", padding:"5px 11px", fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>
-            ⬇ Export JSON
-          </button>
-
-          {/* JSON Import */}
-          <input ref={importRef} type="file" accept=".json" style={{ display:"none" }} onChange={importPlanning} />
-          <button onClick={()=>importRef.current?.click()} style={{ display:"flex", alignItems:"center", gap:5, background:"#F9FAFB", border:"1px solid #E5E7EB", borderRadius:7, color:"#374151", padding:"5px 11px", fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>
-            ⬆ Import JSON
-          </button>
-
-          <div style={{ width:1, height:16, background:"#E5E7EB", margin:"0 2px" }} />
-
-          {/* Cloud sync */}
-          {!accessToken ? (
-            <button onClick={onSignIn} style={{ display:"flex", alignItems:"center", gap:5, background:"rgba(37,99,235,0.07)", border:"1px solid rgba(37,99,235,0.2)", borderRadius:7, color:"#1D4ED8", padding:"5px 11px", fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>
-              ☁ Connect Google Drive
-            </button>
-          ) : (
-            <>
-              <button onClick={onCloudLoad} disabled={cloudSyncing} style={{ display:"flex", alignItems:"center", gap:5, background:"rgba(30,64,175,0.07)", border:"1px solid rgba(30,64,175,0.2)", borderRadius:7, color:"#1E40AF", padding:"5px 11px", fontSize:11, fontWeight:700, cursor:cloudSyncing?"wait":"pointer", fontFamily:"inherit", opacity:cloudSyncing?0.6:1 }}>
-                ⬇ Load from Drive
-              </button>
-              <button onClick={onCloudSave} disabled={cloudSyncing} style={{ display:"flex", alignItems:"center", gap:5, background:"rgba(4,120,87,0.07)", border:"1px solid rgba(4,120,87,0.2)", borderRadius:7, color:"#065F46", padding:"5px 11px", fontSize:11, fontWeight:700, cursor:cloudSyncing?"wait":"pointer", fontFamily:"inherit", opacity:cloudSyncing?0.6:1 }}>
-                {cloudSyncing ? "⏳ Syncing..." : cloudSynced ? "☁ Saved ✓" : "☁ Save to Drive"}
-              </button>
-            </>
-          )}
-
-          <div style={{ fontSize:10, color:"#9CA3AF", marginLeft:4 }}>
-            {accessToken ? (cloudSynced ? "All devices in sync" : "Save to sync across devices") : "Connect Drive to sync across devices"}
-          </div>
-        </div>
+        {canEdit && <button onClick={()=>setModal({type:"newEdition",form:{city:"",tentativeDate:"",venue:"",budgetNote:"",notes:""}})} style={{ background:"linear-gradient(135deg,#7C3AED,#5B21B6)", border:"none", borderRadius:9, color:"#fff", padding:"9px 18px", fontSize:13, fontWeight:800, cursor:"pointer", fontFamily:"inherit" }}>+ New Edition</button>}
       </div>
 
       {/* Edition tabs with drag reorder */}
@@ -1972,7 +1787,7 @@ function UnmutePlanningSection({ data, canEdit, onUpdate, atdpStudents, onCloudS
           </div>
 
           {/* Sub-tabs */}
-          <SubTabs tabs={["candidates","songs","checklist","vendors","deliverables","notes"]} active={activeTab} onChange={setActiveTab} accent="#C2410C" />
+          <SubTabs tabs={["candidates","songs","notes"]} active={activeTab} onChange={setActiveTab} accent="#C2410C" />
 
           {/* ── CANDIDATES TAB ── */}
           {activeTab==="candidates" && (
@@ -2076,11 +1891,6 @@ function UnmutePlanningSection({ data, canEdit, onUpdate, atdpStudents, onCloudS
                         <span style={{ fontSize:10, background:prodStageInfo.color+"22", border:`1px solid ${prodStageInfo.color}44`, borderRadius:5, padding:"3px 8px", color:prodStageInfo.color, fontWeight:700 }}>🎛️ {prodStageInfo.label}</span>
                       </div>
                       {s.notes && <div style={{ fontSize:11, color:"#6B7280", width:"100%" }}>{s.notes}</div>}
-                      <div style={{ display:"flex", gap:10, width:"100%", flexWrap:"wrap" }}>
-                        {s.scratchLink && <a href={s.scratchLink} target="_blank" rel="noreferrer" style={{ fontSize:11, color:"#B45309", fontWeight:700, textDecoration:"none" }}>🎵 Scratch</a>}
-                        {s.finalLink && <a href={s.finalLink} target="_blank" rel="noreferrer" style={{ fontSize:11, color:"#047857", fontWeight:700, textDecoration:"none" }}>✅ Final Stems</a>}
-                        {!s.scratchLink && !s.finalLink && <span style={{ fontSize:11, color:"#9CA3AF" }}>No track links yet</span>}
-                      </div>
                       {canEdit && (
                         <div style={{ display:"flex", gap:6, flexShrink:0 }}>
                           <button onClick={()=>setModal({type:"song",form:{...s},idx:i})} style={{ background:"#F9FAFB", border:"1px solid #E5E7EB", borderRadius:7, color:"#6B7280", padding:"5px 10px", fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>✏️</button>
@@ -2095,326 +1905,6 @@ function UnmutePlanningSection({ data, canEdit, onUpdate, atdpStudents, onCloudS
           )}
 
           {/* ── NOTES TAB ── */}
-          {/* ── CHECKLIST TAB ── */}
-          {activeTab==="checklist" && (
-            <div>
-              {/* Progress summary */}
-              {(()=>{
-                const tasks = getChecklist();
-                const done = tasks.filter(t=>t.status==="done").length;
-                const total = tasks.length;
-                const pct = total > 0 ? Math.round(done/total*100) : 0;
-                const blocked = tasks.filter(t=>t.status==="blocked").length;
-                return (
-                  <div style={{ background:"#fff", border:"1px solid #E5E7EB", borderRadius:12, padding:"14px 18px", marginBottom:16, display:"flex", alignItems:"center", gap:16, flexWrap:"wrap" }}>
-                    <div style={{ flex:1, minWidth:200 }}>
-                      <div style={{ display:"flex", justifyContent:"space-between", marginBottom:5 }}>
-                        <span style={{ fontSize:12, fontWeight:700, color:"#1A1A1A" }}>{done} / {total} tasks done</span>
-                        <span style={{ fontSize:12, color:pct===100?"#047857":"#6B7280", fontWeight:700 }}>{pct}%</span>
-                      </div>
-                      <div style={{ height:6, background:"#F3F4F6", borderRadius:99, overflow:"hidden" }}>
-                        <div style={{ height:"100%", width:`${pct}%`, background: pct===100?"#047857":"linear-gradient(90deg,#C2410C,#f59e0b)", borderRadius:99, transition:"width 0.3s" }} />
-                      </div>
-                    </div>
-                    {blocked > 0 && <span style={{ fontSize:11, background:"rgba(220,38,38,0.08)", color:"#DC2626", border:"1px solid rgba(220,38,38,0.2)", borderRadius:6, padding:"3px 10px", fontWeight:700 }}>{blocked} blocked</span>}
-                  </div>
-                );
-              })()}
-
-              {/* Tasks grouped by phase */}
-              {TASK_PHASES.map(phase => {
-                const tasks = getChecklist();
-                const phaseTasks = tasks.map((t,i)=>({...t,_idx:i})).filter(t=>t.phase===phase);
-                const donePct = phaseTasks.length > 0 ? Math.round(phaseTasks.filter(t=>t.status==="done").length/phaseTasks.length*100) : 0;
-                return (
-                  <div key={phase} style={{ marginBottom:20 }}>
-                    <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:10 }}>
-                      <div style={{ fontSize:11, fontWeight:700, color:"#C2410C", textTransform:"uppercase", letterSpacing:"0.1em" }}>{phase}</div>
-                      <div style={{ fontSize:10, color:"#6B7280" }}>{phaseTasks.filter(t=>t.status==="done").length}/{phaseTasks.length}</div>
-                      <div style={{ flex:1, height:2, background:"#F3F4F6", borderRadius:99 }}>
-                        <div style={{ height:"100%", width:`${donePct}%`, background:"#C2410C", borderRadius:99 }} />
-                      </div>
-                      {canEdit && <button onClick={()=>addTask(phase)} style={{ fontSize:10, background:"rgba(194,65,12,0.08)", border:"1px solid rgba(194,65,12,0.2)", borderRadius:6, color:"#C2410C", padding:"2px 8px", cursor:"pointer", fontFamily:"inherit", fontWeight:700 }}>+ Add</button>}
-                    </div>
-                    <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
-                      {phaseTasks.map(t => (
-                        <div key={t.id} style={{ background:"#fff", border:`1px solid ${t.status==="blocked"?"rgba(220,38,38,0.25)":t.status==="done"?"rgba(4,120,87,0.15)":"#E5E7EB"}`, borderRadius:10, padding:"10px 14px", display:"flex", alignItems:"flex-start", gap:10 }}>
-                          {/* Status toggle */}
-                          <button onClick={()=>{ if(!canEdit) return; const next = t.status==="todo"?"in progress":t.status==="in progress"?"done":t.status==="done"?"blocked":"todo"; saveTask(t._idx,{status:next}); }}
-                            style={{ flexShrink:0, width:18, height:18, borderRadius:4, border:`2px solid ${TASK_STATUS_COLORS[t.status]}`, background:t.status==="done"?TASK_STATUS_COLORS["done"]:"transparent", cursor:canEdit?"pointer":"default", display:"flex", alignItems:"center", justifyContent:"center", marginTop:1 }}>
-                            {t.status==="done" && <span style={{ color:"#fff", fontSize:10, fontWeight:900 }}>✓</span>}
-                            {t.status==="blocked" && <span style={{ color:TASK_STATUS_COLORS["blocked"], fontSize:10 }}>!</span>}
-                            {t.status==="in progress" && <span style={{ color:TASK_STATUS_COLORS["in progress"], fontSize:8 }}>●</span>}
-                          </button>
-                          <div style={{ flex:1 }}>
-                            {canEdit ? (
-                              <input value={t.task} onChange={e=>saveTask(t._idx,{task:e.target.value})}
-                                style={{ width:"100%", border:"none", outline:"none", fontFamily:"inherit", fontSize:13, fontWeight:600, color: t.status==="done"?"#9CA3AF":"#1A1A1A", background:"transparent", textDecoration: t.status==="done"?"line-through":"none" }} />
-                            ) : (
-                              <div style={{ fontSize:13, fontWeight:600, color: t.status==="done"?"#9CA3AF":"#1A1A1A", textDecoration: t.status==="done"?"line-through":"none" }}>{t.task||"Untitled task"}</div>
-                            )}
-                            <div style={{ display:"flex", gap:10, marginTop:5, flexWrap:"wrap", alignItems:"center" }}>
-                              {canEdit ? (
-                                <>
-                                  <input value={t.owner} onChange={e=>saveTask(t._idx,{owner:e.target.value})} placeholder="Owner"
-                                    style={{ border:"none", borderBottom:"1px solid #E5E7EB", outline:"none", fontFamily:"inherit", fontSize:11, color:"#6B7280", background:"transparent", width:90 }} />
-                                  <input type="date" value={t.due} onChange={e=>saveTask(t._idx,{due:e.target.value})}
-                                    style={{ border:"1px solid #E5E7EB", borderRadius:5, outline:"none", fontFamily:"inherit", fontSize:11, color:"#6B7280", background:"#F9FAFB", padding:"2px 5px", width:130 }} />
-                                  <input value={t.notes} onChange={e=>saveTask(t._idx,{notes:e.target.value})} placeholder="Notes"
-                                    style={{ border:"none", borderBottom:"1px solid #E5E7EB", outline:"none", fontFamily:"inherit", fontSize:11, color:"#6B7280", background:"transparent", flex:1, minWidth:80 }} />
-                                </>
-                              ) : (
-                                <>
-                                  {t.owner && <span style={{ fontSize:11, color:"#6B7280" }}>👤 {t.owner}</span>}
-                                  {t.due && <span style={{ fontSize:11, color: new Date(t.due)<new Date() && t.status!=="done"?"#DC2626":"#6B7280", fontWeight: new Date(t.due)<new Date() && t.status!=="done"?700:400 }}>📅 {new Date(t.due).toLocaleDateString("en-IN",{day:"numeric",month:"short"})}</span>}
-                                  {t.notes && <span style={{ fontSize:11, color:"#9CA3AF" }}>{t.notes}</span>}
-                                </>
-                              )}
-                              <span style={{ fontSize:9, fontWeight:700, padding:"1px 6px", borderRadius:99, background:`${TASK_STATUS_COLORS[t.status]}15`, color:TASK_STATUS_COLORS[t.status], border:`1px solid ${TASK_STATUS_COLORS[t.status]}30` }}>{t.status}</span>
-                              {canEdit && <button onClick={()=>deleteTask(t._idx)} style={{ background:"none", border:"none", color:"#DC2626", cursor:"pointer", fontSize:11, padding:0, opacity:0.5 }}>✕</button>}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                      {phaseTasks.length === 0 && <div style={{ fontSize:12, color:"#9CA3AF", padding:"8px 0" }}>No tasks yet. Click + Add to create one.</div>}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {/* ── VENDORS TAB ── */}
-          {activeTab==="vendors" && (
-            <div>
-              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
-                <div style={{ fontSize:13, fontWeight:700, color:"#1A1A1A" }}>Vendors & Crew</div>
-                {canEdit && <button onClick={()=>{ saveVendor(null); }}
-                  style={{ background:"linear-gradient(135deg,#7C3AED,#5B21B6)", border:"none", borderRadius:8, color:"#fff", padding:"7px 14px", fontSize:12, fontWeight:800, cursor:"pointer", fontFamily:"inherit" }}>
-                  + Add Vendor
-                </button>}
-              </div>
-
-              {/* Budget summary */}
-              {(()=>{
-                const vendors = getVendors();
-                const total = vendors.reduce((a,v)=>a+(parseInt((v.rate||"0").replace(/[^0-9]/g,""))||0),0);
-                const paid = vendors.filter(v=>v.paymentStatus==="Paid in full").reduce((a,v)=>a+(parseInt((v.rate||"0").replace(/[^0-9]/g,""))||0),0);
-                if(vendors.length === 0) return null;
-                return (
-                  <div style={{ display:"flex", gap:10, marginBottom:16, flexWrap:"wrap" }}>
-                    {[["Total Vendors",vendors.length,"#1A1A1A"],["Confirmed",vendors.filter(v=>v.paymentStatus!=="Not started").length,"#047857"],["Budget Est.",`₹${total.toLocaleString("en-IN")}`,"#B45309"],["Paid",`₹${paid.toLocaleString("en-IN")}`,paid>=total?"#047857":"#DC2626"]].map(([l,v,c])=>(
-                      <div key={l} style={{ background:"rgba(0,0,0,0.02)", border:"1px solid rgba(0,0,0,0.05)", borderRadius:10, padding:"10px 14px", textAlign:"center" }}>
-                        <div style={{ fontSize:16, fontWeight:800, color:c, fontFamily:"monospace" }}>{v}</div>
-                        <div style={{ fontSize:10, color:"#6B7280", marginTop:2 }}>{l}</div>
-                      </div>
-                    ))}
-                  </div>
-                );
-              })()}
-
-              {getVendors().length === 0 && (
-                <div style={{ fontSize:13, color:"#9CA3AF", padding:"24px 0", textAlign:"center" }}>No vendors added yet. Add your camera crew, sound engineer, venue, etc.</div>
-              )}
-
-              <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-                {getVendors().map((v,i) => {
-                  const pyColor = {"Paid in full":"#047857","Advance given":"#B45309","Partial payment":"#1E40AF","Not started":"#6B7280"}[v.paymentStatus]||"#6B7280";
-                  return (
-                    <div key={v.id||i} style={{ background:"#fff", border:"1px solid #E5E7EB", borderRadius:12, padding:"14px 16px" }}>
-                      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:10, marginBottom:10 }}>
-                        <div>
-                          <div style={{ fontSize:9, fontWeight:700, color:"#6B7280", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:3 }}>Role</div>
-                          {canEdit ? (
-                            <select value={v.role} onChange={e=>saveVendor(i,{role:e.target.value})}
-                              style={{ width:"100%", border:"1px solid #E5E7EB", borderRadius:6, padding:"5px 8px", fontSize:12, fontFamily:"inherit", outline:"none", background:"#F9FAFB" }}>
-                              <option value="">Select role…</option>
-                              {VENDOR_ROLES.map(r=><option key={r} value={r}>{r}</option>)}
-                            </select>
-                          ) : <div style={{ fontSize:12, fontWeight:700, color:"#374151" }}>{v.role||"—"}</div>}
-                        </div>
-                        <div>
-                          <div style={{ fontSize:9, fontWeight:700, color:"#6B7280", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:3 }}>Name</div>
-                          {canEdit ? (
-                            <input value={v.name} onChange={e=>saveVendor(i,{name:e.target.value})} placeholder="Vendor / person name"
-                              style={{ width:"100%", border:"1px solid #E5E7EB", borderRadius:6, padding:"5px 8px", fontSize:12, fontFamily:"inherit", outline:"none" }} />
-                          ) : <div style={{ fontSize:12, fontWeight:700, color:"#1A1A1A" }}>{v.name||"—"}</div>}
-                        </div>
-                        <div>
-                          <div style={{ fontSize:9, fontWeight:700, color:"#6B7280", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:3 }}>Contact</div>
-                          {canEdit ? (
-                            <input value={v.contact} onChange={e=>saveVendor(i,{contact:e.target.value})} placeholder="+91 XXXXX XXXXX"
-                              style={{ width:"100%", border:"1px solid #E5E7EB", borderRadius:6, padding:"5px 8px", fontSize:12, fontFamily:"inherit", outline:"none" }} />
-                          ) : <div style={{ fontSize:12, color:"#374151" }}>{v.contact||"—"}</div>}
-                        </div>
-                        <div>
-                          <div style={{ fontSize:9, fontWeight:700, color:"#6B7280", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:3 }}>Service / Gear</div>
-                          {canEdit ? (
-                            <input value={v.service} onChange={e=>saveVendor(i,{service:e.target.value})} placeholder="e.g. 2× DSLR, 24-70mm, LED panels"
-                              style={{ width:"100%", border:"1px solid #E5E7EB", borderRadius:6, padding:"5px 8px", fontSize:12, fontFamily:"inherit", outline:"none" }} />
-                          ) : <div style={{ fontSize:12, color:"#374151" }}>{v.service||"—"}</div>}
-                        </div>
-                        <div>
-                          <div style={{ fontSize:9, fontWeight:700, color:"#6B7280", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:3 }}>Rate (₹)</div>
-                          {canEdit ? (
-                            <input value={v.rate} onChange={e=>saveVendor(i,{rate:e.target.value})} placeholder="e.g. 22000"
-                              style={{ width:"100%", border:"1px solid #E5E7EB", borderRadius:6, padding:"5px 8px", fontSize:12, fontFamily:"inherit", outline:"none" }} />
-                          ) : <div style={{ fontSize:12, fontWeight:700, color:"#374151" }}>{v.rate ? `₹${v.rate}` : "—"}</div>}
-                        </div>
-                        <div>
-                          <div style={{ fontSize:9, fontWeight:700, color:"#6B7280", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:3 }}>Payment</div>
-                          {canEdit ? (
-                            <select value={v.paymentStatus} onChange={e=>saveVendor(i,{paymentStatus:e.target.value})}
-                              style={{ width:"100%", border:`1px solid ${pyColor}40`, borderRadius:6, padding:"5px 8px", fontSize:12, fontFamily:"inherit", outline:"none", color:pyColor, fontWeight:700, background:`${pyColor}08` }}>
-                              {PAYMENT_STATUSES.map(s=><option key={s} value={s}>{s}</option>)}
-                            </select>
-                          ) : <span style={{ fontSize:11, fontWeight:700, color:pyColor }}>{v.paymentStatus}</span>}
-                        </div>
-                      </div>
-                      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr auto", gap:10, alignItems:"center" }}>
-                        <div>
-                          <div style={{ fontSize:9, fontWeight:700, color:"#6B7280", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:3 }}>Onsite POC</div>
-                          {canEdit ? (
-                            <input value={v.oncitePOC} onChange={e=>saveVendor(i,{oncitePOC:e.target.value})} placeholder="Who manages this vendor"
-                              style={{ width:"100%", border:"1px solid #E5E7EB", borderRadius:6, padding:"5px 8px", fontSize:12, fontFamily:"inherit", outline:"none" }} />
-                          ) : <div style={{ fontSize:12, color:"#374151" }}>{v.oncitePOC||"—"}</div>}
-                        </div>
-                        <div>
-                          <div style={{ fontSize:9, fontWeight:700, color:"#6B7280", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:3 }}>Notes</div>
-                          {canEdit ? (
-                            <input value={v.notes} onChange={e=>saveVendor(i,{notes:e.target.value})} placeholder="Any notes"
-                              style={{ width:"100%", border:"1px solid #E5E7EB", borderRadius:6, padding:"5px 8px", fontSize:12, fontFamily:"inherit", outline:"none" }} />
-                          ) : <div style={{ fontSize:12, color:"#9CA3AF" }}>{v.notes||"—"}</div>}
-                        </div>
-                        {canEdit && <button onClick={()=>deleteVendor(i)} style={{ background:"none", border:"none", color:"#DC2626", cursor:"pointer", fontSize:13, padding:"4px 6px", opacity:0.6 }}>🗑</button>}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* ── DELIVERABLES TAB ── */}
-          {activeTab==="deliverables" && (
-            <div>
-              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
-                <div>
-                  <div style={{ fontSize:13, fontWeight:700, color:"#1A1A1A" }}>Deliverables Tracker</div>
-                  <div style={{ fontSize:11, color:"#6B7280", marginTop:2 }}>Pavan (video production) + Akshay (music production)</div>
-                </div>
-                {canEdit && <button onClick={()=>saveDeliverable(null)}
-                  style={{ background:"linear-gradient(135deg,#C2410C,#9A3412)", border:"none", borderRadius:8, color:"#fff", padding:"7px 14px", fontSize:12, fontWeight:800, cursor:"pointer", fontFamily:"inherit" }}>
-                  + Add Deliverable
-                </button>}
-              </div>
-
-              {/* Summary strip */}
-              {(()=>{
-                const items = getDeliverables();
-                const approved = items.filter(d=>d.status==="Approved").length;
-                const overdue = items.filter(d=>d.status==="Overdue").length;
-                const pending = items.filter(d=>d.status==="Pending").length;
-                const pct = items.length > 0 ? Math.round(approved/items.length*100) : 0;
-                return (
-                  <div style={{ background:"#fff", border:"1px solid #E5E7EB", borderRadius:12, padding:"12px 16px", marginBottom:16 }}>
-                    <div style={{ display:"flex", gap:16, marginBottom:8, flexWrap:"wrap" }}>
-                      {[["Total",items.length,"#1A1A1A"],["Approved",approved,"#047857"],["Pending",pending,"#6B7280"],["Overdue",overdue,overdue>0?"#DC2626":"#9CA3AF"]].map(([l,v,c])=>(
-                        <div key={l} style={{ textAlign:"center" }}>
-                          <div style={{ fontFamily:"monospace", fontSize:18, fontWeight:800, color:c }}>{v}</div>
-                          <div style={{ fontSize:10, color:"#6B7280" }}>{l}</div>
-                        </div>
-                      ))}
-                      <div style={{ flex:1, display:"flex", alignItems:"center", gap:10, minWidth:150 }}>
-                        <div style={{ flex:1, height:5, background:"#F3F4F6", borderRadius:99 }}>
-                          <div style={{ height:"100%", width:`${pct}%`, background:pct===100?"#047857":"linear-gradient(90deg,#C2410C,#f59e0b)", borderRadius:99, transition:"width 0.3s" }} />
-                        </div>
-                        <span style={{ fontSize:11, fontWeight:700, color:pct===100?"#047857":"#6B7280" }}>{pct}% done</span>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })()}
-
-              {/* Deliverables grouped by assignee */}
-              {["Pavan","Akshay","Other"].map(assignee => {
-                const items = getDeliverables().map((d,i)=>({...d,_idx:i})).filter(d=>(d.assignee||"Other")===assignee);
-                if(items.length===0) return null;
-                const done = items.filter(d=>d.status==="Approved").length;
-                return (
-                  <div key={assignee} style={{ marginBottom:20 }}>
-                    <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:10 }}>
-                      <div style={{ fontSize:11, fontWeight:700, color:"#C2410C", textTransform:"uppercase", letterSpacing:"0.1em" }}>{assignee}</div>
-                      <div style={{ fontSize:10, color:"#6B7280" }}>{done}/{items.length} approved</div>
-                      <div style={{ flex:1, height:2, background:"#F3F4F6", borderRadius:99 }}>
-                        <div style={{ height:"100%", width:items.length>0?`${Math.round(done/items.length*100)}%`:"0%", background:"#047857", borderRadius:99 }} />
-                      </div>
-                    </div>
-                    <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-                    {items.map((d) => { const i = d._idx;
-                  const stColor = DELIVERABLE_STATUS_COLORS[d.status] || "#6B7280";
-                  return (
-                    <div key={d.id||i} style={{ background:"#fff", border:`1px solid ${d.status==="Overdue"?"rgba(220,38,38,0.25)":d.status==="Approved"?"rgba(4,120,87,0.15)":"#E5E7EB"}`, borderRadius:12, padding:"12px 16px" }}>
-                      <div style={{ display:"grid", gridTemplateColumns:"2fr 1fr 1fr 1fr auto", gap:10, alignItems:"center" }}>
-                        {/* Deliverable name */}
-                        <div>
-                          <div style={{ fontSize:9, fontWeight:700, color:"#6B7280", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:3 }}>Deliverable</div>
-                          {canEdit ? (
-                            <input value={d.item} onChange={e=>saveDeliverable(i,{item:e.target.value})}
-                              style={{ width:"100%", border:"none", borderBottom:"1px solid #E5E7EB", outline:"none", fontFamily:"inherit", fontSize:13, fontWeight:600, color:"#1A1A1A", background:"transparent", padding:"2px 0" }} />
-                          ) : <div style={{ fontSize:13, fontWeight:600, color:"#1A1A1A" }}>{d.item||"—"}</div>}
-                        </div>
-
-                        {/* Deadline */}
-                        <div>
-                          <div style={{ fontSize:9, fontWeight:700, color:"#6B7280", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:3 }}>Deadline</div>
-                          {canEdit ? (
-                            <input type="date" value={d.deadline} onChange={e=>saveDeliverable(i,{deadline:e.target.value})}
-                              style={{ width:"100%", border:"1px solid #E5E7EB", borderRadius:6, outline:"none", fontFamily:"inherit", fontSize:12, color:"#374151", background:"#F9FAFB", padding:"4px 6px" }} />
-                          ) : <div style={{ fontSize:12, color:"#374151" }}>{d.deadline ? new Date(d.deadline).toLocaleDateString("en-IN",{day:"numeric",month:"short",year:"numeric"}) : "—"}</div>}
-                        </div>
-
-                        {/* Status */}
-                        <div>
-                          <div style={{ fontSize:9, fontWeight:700, color:"#6B7280", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:3 }}>Status</div>
-                          {canEdit ? (
-                            <select value={d.status} onChange={e=>saveDeliverable(i,{status:e.target.value})}
-                              style={{ width:"100%", border:`1px solid ${stColor}40`, borderRadius:6, padding:"4px 7px", fontSize:11, fontFamily:"inherit", outline:"none", color:stColor, fontWeight:700, background:`${stColor}08` }}>
-                              {DELIVERABLE_STATUSES.map(s=><option key={s} value={s}>{s}</option>)}
-                            </select>
-                          ) : <span style={{ fontSize:11, fontWeight:700, color:stColor }}>{d.status}</span>}
-                        </div>
-
-                        {/* Drive link */}
-                        <div>
-                          <div style={{ fontSize:9, fontWeight:700, color:"#6B7280", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:3 }}>Drive Link</div>
-                          {canEdit ? (
-                            <input value={d.driveLink} onChange={e=>saveDeliverable(i,{driveLink:e.target.value})} placeholder="https://drive.google.com/..."
-                              style={{ width:"100%", border:"none", borderBottom:"1px solid #E5E7EB", outline:"none", fontFamily:"inherit", fontSize:11, color:"#1E40AF", background:"transparent", padding:"2px 0" }} />
-                          ) : d.driveLink ? <a href={d.driveLink} target="_blank" rel="noreferrer" style={{ fontSize:11, color:"#1E40AF", fontWeight:700 }}>Open</a> : <span style={{ fontSize:11, color:"#9CA3AF" }}>—</span>}
-                        </div>
-
-                        {/* Delete */}
-                        {canEdit && <button onClick={()=>deleteDeliverable(i)} style={{ background:"none", border:"none", color:"#DC2626", cursor:"pointer", fontSize:13, padding:"4px", opacity:0.5 }}>🗑</button>}
-                      </div>
-
-                      {/* Notes row */}
-                      <div style={{ marginTop:8 }}>
-                        {canEdit ? (
-                          <input value={d.notes} onChange={e=>saveDeliverable(i,{notes:e.target.value})} placeholder="Notes (e.g. revision requested on timing at 2:34)"
-                            style={{ width:"100%", border:"none", borderBottom:"1px solid #F3F4F6", outline:"none", fontFamily:"inherit", fontSize:11, color:"#6B7280", background:"transparent", padding:"2px 0" }} />
-                        ) : d.notes ? <div style={{ fontSize:11, color:"#6B7280", fontStyle:"italic" }}>{d.notes}</div> : null}
-                      </div>
-                    </div>
-                  );
-                })}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
           {activeTab==="notes" && (
             <div style={{ background:"#fff", backdropFilter:"blur(16px)", WebkitBackdropFilter:"blur(16px)", border:"1px solid #E5E7EB", borderRadius:14, padding:20 }}>
               <div style={{ fontSize:13, fontWeight:700, color:"#1A1A1A", marginBottom:12 }}>Edition Notes & Logistics</div>
@@ -2540,11 +2030,6 @@ function UnmutePlanningSection({ data, canEdit, onUpdate, atdpStudents, onCloudS
               );
             })()}
 
-            <Divider label="Track Links" />
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
-              <Field label="Scratch / Guide Track (link)" value={modal.form.scratchLink||""} onChange={v=>setModal(p=>({...p,form:{...p.form,scratchLink:v}}))} placeholder="Drive / WeTransfer link" />
-              <Field label="Final Stems / Track (link)" value={modal.form.finalLink||""} onChange={v=>setModal(p=>({...p,form:{...p.form,finalLink:v}}))} placeholder="Drive link to final stems" />
-            </div>
             <Field label="Notes" value={modal.form.notes} onChange={v=>setModal(p=>({...p,form:{...p.form,notes:v}}))} textarea placeholder="Arrangement notes, concerns, ideas…" />
             <div style={{ display:"flex", gap:8, justifyContent:"flex-end" }}>
               <button onClick={close} style={{ background:"#F9FAFB", border:"none", borderRadius:8, color:"#374151", padding:"9px 18px", fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>Cancel</button>
@@ -2910,7 +2395,7 @@ function UnmuteEditionStats({ performers }) {
   );
 }
 
-function UnmuteSection({ data, canEdit, onUpdate, period, ytApiKey, onCloudSave, onCloudLoad, gdriveStatus, accessToken, onSignIn }) {
+function UnmuteSection({ data, canEdit, onUpdate, period, ytApiKey }) {
   const [ytSearchFor, setYtSearchFor] = useState(null);
   const [activeIdx, setActiveIdx] = useState(0);
   const { ask:confirmDelete, ConfirmModal:DeleteConfirmModal } = useConfirmDelete();
@@ -2950,7 +2435,7 @@ function UnmuteSection({ data, canEdit, onUpdate, period, ytApiKey, onCloudSave,
         action={canEdit && <Btn onClick={()=>open("edition",{city:"",date:"",venue:"",status:"planned",notes:""})}>+ Add Edition</Btn>}
       />
       <SubTabs tabs={["editions","planning"]} active={mainTab} onChange={setMainTab} accent="#C2410C" />
-      {mainTab==="planning" && <UnmutePlanningSection data={data} canEdit={canEdit} onUpdate={onUpdate} atdpStudents={[]} onCloudSave={onCloudSave} onCloudLoad={onCloudLoad} gdriveStatus={gdriveStatus} accessToken={accessToken} onSignIn={onSignIn} />}
+      {mainTab==="planning" && <UnmutePlanningSection data={data} canEdit={canEdit} onUpdate={onUpdate} atdpStudents={[]} />}
       {mainTab==="editions" && <div>
 
       <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:12, marginBottom:22 }}>
@@ -3289,7 +2774,7 @@ function DevColManager({ cols, onSave, onClose }) {
         </div>
         <div style={{ padding:"18px 24px", maxHeight:"60vh", overflowY:"auto" }}>
           <div style={{ fontSize:10, fontWeight:700, color:"#9CA3AF", textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:8 }}>Built-in columns (always visible)</div>
-          {["Teacher","Phone","Category","Language","Genre","Scratch","Final Track","Prod","Release Date","Links","Notes"].map(c=>(
+          {["Teacher","Phone","Religion","Language","Type","Scratch","Final Track","Prod","Release Date","Links","Notes"].map(c=>(
             <div key={c} style={{ display:"flex", alignItems:"center", gap:8, padding:"6px 10px", background:"#F9FAFB", borderRadius:7, marginBottom:4 }}>
               <span style={{ fontSize:12, color:"#6B7280", flex:1 }}>{c}</span>
               <span style={{ fontSize:10, color:"#D1D5DB" }}>built-in</span>
@@ -3330,340 +2815,7 @@ function DevColManager({ cols, onSave, onClose }) {
   );
 }
 
-
-// ─── TEACHER SERIES TAB ──────────────────────────────────────────────────────
-function TeacherSeriesTab({ submissions, loading, error, accessToken, onLoad, onStatusChange,
-  tsQ, setTsQ, tsSortField, setTsSortField, tsSortDir, setTsSortDir,
-  TS_STAGES, TS_STAGE_COLORS, TS_FORM_URL, TS_SHEET_URL, canEdit, onNavigateDevotional, hideHeader=false, onMoveToProduction }) {
-
-  const C2 = { pink:"#9D174D", teal:"#047857", gold:"#B45309", blue:"#1E40AF", purple:"#6D28D9", green:"#065F46", red:"#DC2626" };
-  const [tsTypeFilter, setTsTypeFilter] = useState("all");
-  const [tsStageFilter, setTsStageFilter] = useState("all");
-  const [expandedRow, setExpandedRow] = useState(null);
-  const [tsView, setTsView] = useState("grid");
-
-  // ── Helpers ──
-  const getName   = s => s.teacherName  || s["teacherName"]  || "—";
-  const getTitle  = s => s.songTitle    || s["songTitle"]    || "—";
-  const getLang   = s => s.language     || s["language"]     || "—";
-  const getType   = s => s.trackType    || s["trackType"]    || "—";
-  const getDate   = s => (s.submittedAt || s["submittedAt"]  || "").slice(0,10) || "—";
-  const getAudio  = s => s.audioLink    || s["audioLink"]    || "";
-  const getStatus = s => s.status       || s["Status"]       || "Submitted";
-  const getEmail  = s => s.teacherEmail || s["teacherEmail"] || "";
-  const getPhone  = s => s.teacherPhone || s["teacherPhone"] || "";
-  const getGenre  = s => s.genre        || s["genre"]        || "";
-  const getRecType= s => s.recordingType|| s["recordingType"]|| "";
-  const getComposer=s => s.composer     || s["composer"]     || "";
-  const getNotes  = s => s.additionalNotes||s["additionalNotes"]||"";
-  const getDesc   = s => s.description  || s["description"]  || "";
-
-  // ── SLA alert: submissions in "Submitted" > 3 days ──
-  const now = Date.now();
-  const isSlaBreached = s => {
-    if (getStatus(s) !== "Submitted") return false;
-    const d = s.submittedAt || s["submittedAt"] || "";
-    if (!d) return false;
-    return (now - new Date(d).getTime()) > 3 * 24 * 60 * 60 * 1000;
-  };
-  const slaBreaches = submissions.filter(isSlaBreached).length;
-
-  // ── Stats ──
-  const total    = submissions.length;
-  const live     = submissions.filter(s => getStatus(s) === "Live").length;
-  const approved = submissions.filter(s => ["Live","Release Prep","Agreement Pending"].includes(getStatus(s))).length;
-  const devotionalCount = submissions.filter(s => getType(s) === "Devotional/Spiritual").length;
-  const generalCount    = submissions.filter(s => getType(s) === "General Original").length;
-  const studioCount     = submissions.filter(s => getRecType(s) === "Studio recording").length;
-  const demoCount       = submissions.filter(s => getRecType(s) === "Phone demo").length;
-  const languages = [...new Set(submissions.map(s => getLang(s)).filter(v => v && v !== "—"))].length;
-
-  // ── Pipeline counts ──
-  const stageCounts = {};
-  TS_STAGES.forEach(st => { stageCounts[st] = submissions.filter(s => getStatus(s) === st).length; });
-
-  // ── Filter + sort ──
-  let rows = [...submissions];
-  if (tsQ.trim().length > 1) {
-    const q = tsQ.toLowerCase();
-    rows = rows.filter(s =>
-      getName(s).toLowerCase().includes(q) ||
-      getTitle(s).toLowerCase().includes(q) ||
-      getLang(s).toLowerCase().includes(q) ||
-      getGenre(s).toLowerCase().includes(q) ||
-      getEmail(s).toLowerCase().includes(q)
-    );
-  }
-  if (tsTypeFilter !== "all")  rows = rows.filter(s => getType(s) === tsTypeFilter);
-  if (tsStageFilter !== "all") rows = rows.filter(s => getStatus(s) === tsStageFilter);
-  rows.sort((a, b) => {
-    const va = (a[tsSortField]||"").toLowerCase();
-    const vb = (b[tsSortField]||"").toLowerCase();
-    return tsSortDir === "asc" ? va.localeCompare(vb) : vb.localeCompare(va);
-  });
-
-  return (
-    <div>
-      {/* Header — hidden when embedded in Teacher Originals */}
-      {!hideHeader && (
-      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:18, flexWrap:"wrap", gap:10 }}>
-        <div>
-          <div style={{ fontSize:15, fontWeight:800, color:"#1A1A1A" }}>Artium Originals — Teacher Series</div>
-          <div style={{ fontSize:12, color:"#6B7280", marginTop:2 }}>Open submission programme · Gold & above · All languages</div>
-        </div>
-        <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
-          <a href={TS_FORM_URL} target="_blank" rel="noreferrer"
-            style={{ display:"inline-flex", alignItems:"center", gap:5, background:"linear-gradient(135deg,#9D174D,#7C1240)", border:"none", borderRadius:8, color:"#fff", padding:"7px 13px", fontSize:12, fontWeight:700, cursor:"pointer", textDecoration:"none" }}>
-            Open Submission Form
-          </a>
-          <a href={TS_SHEET_URL} target="_blank" rel="noreferrer"
-            style={{ display:"inline-flex", alignItems:"center", gap:5, background:"rgba(4,120,87,0.1)", border:"1px solid rgba(4,120,87,0.25)", borderRadius:8, color:"#065F46", padding:"7px 13px", fontSize:12, fontWeight:700, cursor:"pointer", textDecoration:"none" }}>
-            Open Sheet
-          </a>
-          <button onClick={onLoad} disabled={loading}
-            style={{ background:"#F9FAFB", border:"1px solid #E5E7EB", borderRadius:8, color:"#374151", padding:"7px 13px", fontSize:12, fontWeight:700, cursor:loading?"wait":"pointer", fontFamily:"inherit" }}>
-            {loading ? "Loading…" : "⟳ Refresh"}
-          </button>
-        </div>
-      </div>
-      )}
-
-      {/* SLA alert */}
-      {slaBreaches > 0 && (
-        <div style={{ background:"rgba(180,83,9,0.08)", border:"1px solid rgba(180,83,9,0.3)", borderRadius:10, padding:"10px 16px", marginBottom:14, fontSize:12, color:"#B45309", fontWeight:600 }}>
-          ⚠ {slaBreaches} submission{slaBreaches>1?"s":""} past 72-hour review SLA — needs attention
-        </div>
-      )}
-
-      {/* Stats strip — hidden when embedded */}
-      {!hideHeader && <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:10, marginBottom:10 }}>
-        {[
-          ["Total Submissions", total,    "#1A1A1A"],
-          ["In Pipeline",       approved, C2.teal],
-          ["Live on DSPs",      live,     C2.green],
-          ["Languages",         languages,C2.blue],
-        ].map(([label, val, color]) => (
-          <div key={label} style={{ background:"rgba(0,0,0,0.02)", border:"1px solid rgba(0,0,0,0.05)", borderRadius:11, padding:"11px 14px", textAlign:"center" }}>
-            <div style={{ fontFamily:"monospace", fontSize:20, fontWeight:800, color }}>{val}</div>
-            <div style={{ fontSize:10, color:"#6B7280", marginTop:2 }}>{label}</div>
-          </div>
-        ))}
-      </div>}
-      {!hideHeader && <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:10, marginBottom:18 }}>
-        {[
-          ["Devotional", devotionalCount, C2.blue],
-          ["General",    generalCount,    C2.purple],
-          ["Studio",     studioCount,     C2.teal],
-          ["Phone Demo", demoCount,       C2.gold],
-        ].map(([label, val, color]) => (
-          <div key={label} style={{ background:"rgba(0,0,0,0.02)", border:"1px solid rgba(0,0,0,0.05)", borderRadius:11, padding:"10px 14px", textAlign:"center" }}>
-            <div style={{ fontFamily:"monospace", fontSize:18, fontWeight:800, color }}>{val}</div>
-            <div style={{ fontSize:10, color:"#6B7280", marginTop:2 }}>{label}</div>
-          </div>
-        ))}
-      </div>}
-
-      {/* Pipeline */}
-      {total > 0 && (
-        <div style={{ marginBottom:18 }}>
-          <div style={{ fontSize:10, fontWeight:700, color:"#6B7280", textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:8 }}>Pipeline</div>
-          <div style={{ display:"flex", gap:8, overflowX:"auto", paddingBottom:4 }}>
-            {TS_STAGES.map(stage => {
-              const count = stageCounts[stage] || 0;
-              const color = TS_STAGE_COLORS[stage] || "#6B7280";
-              const isActive = tsStageFilter === stage;
-              return (
-                <div key={stage} onClick={()=>setTsStageFilter(isActive?"all":stage)}
-                  style={{ flex:"0 0 auto", minWidth:108, background: isActive?`${color}14`:"#fff",
-                    border:`1px solid ${isActive?color:color+"22"}`, borderTop:`3px solid ${color}`,
-                    borderRadius:10, padding:"11px 12px", textAlign:"center", cursor:"pointer",
-                    transition:"all 0.15s" }}>
-                  <div style={{ fontFamily:"monospace", fontSize:20, fontWeight:800, color }}>{count}</div>
-                  <div style={{ fontSize:10, color:"#6B7280", marginTop:3, lineHeight:1.4 }}>{stage}</div>
-                </div>
-              );
-            })}
-          </div>
-          {tsStageFilter !== "all" && (
-            <div style={{ fontSize:11, color:"#9CA3AF", marginTop:6 }}>
-              Filtering by: <strong style={{ color:TS_STAGE_COLORS[tsStageFilter] }}>{tsStageFilter}</strong>
-              <button onClick={()=>setTsStageFilter("all")} style={{ marginLeft:8, fontSize:11, color:"#6B7280", background:"none", border:"none", cursor:"pointer", textDecoration:"underline", fontFamily:"inherit" }}>clear</button>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Error / Empty */}
-      {error && (
-        <div style={{ background:"rgba(220,38,38,0.06)", border:"1px solid rgba(220,38,38,0.2)", borderRadius:10, padding:"14px 18px", marginBottom:16, fontSize:13, color:"#DC2626" }}>
-          {error}
-        </div>
-      )}
-      {!loading && !error && submissions.length === 0 && (
-        <div style={{ background:"rgba(157,23,77,0.04)", border:"1px solid rgba(157,23,77,0.12)", borderRadius:14, padding:"32px 24px", textAlign:"center", marginBottom:16 }}>
-          <div style={{ fontSize:15, fontWeight:700, color:"#1A1A1A", marginBottom:6 }}>No submissions loaded</div>
-          <div style={{ fontSize:13, color:"#6B7280", marginBottom:18 }}>
-            {accessToken ? "Click Refresh to pull from the Google Sheet." : "Sign in to Google Drive (top bar) then click Refresh."}
-          </div>
-          <button onClick={onLoad} disabled={loading}
-            style={{ background:"linear-gradient(135deg,#9D174D,#7C1240)", border:"none", borderRadius:8, color:"#fff", padding:"10px 22px", fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>
-            Load Submissions
-          </button>
-        </div>
-      )}
-
-      {/* Toolbar */}
-      {submissions.length > 0 && (
-        <div style={{ display:"flex", gap:8, marginBottom:12, flexWrap:"wrap", alignItems:"center" }}>
-          <input value={tsQ} onChange={e=>setTsQ(e.target.value)} placeholder="Search name, title, language, email…"
-            style={{ flex:"1 1 180px", background:"#F9FAFB", border:"1px solid #E5E7EB", borderRadius:7, padding:"6px 12px", fontSize:12, fontFamily:"inherit", outline:"none", color:"#1A1A1A" }} />
-          <select value={tsTypeFilter} onChange={e=>setTsTypeFilter(e.target.value)}
-            style={{ background:"#F9FAFB", border:"1px solid #E5E7EB", borderRadius:7, padding:"6px 10px", color:"#374151", fontSize:12, fontFamily:"inherit", outline:"none" }}>
-            <option value="all">All types</option>
-            <option value="Devotional/Spiritual">Devotional</option>
-            <option value="General Original">General</option>
-          </select>
-          <select value={tsSortField} onChange={e=>setTsSortField(e.target.value)}
-            style={{ background:"#F9FAFB", border:"1px solid #E5E7EB", borderRadius:7, padding:"6px 10px", color:"#374151", fontSize:12, fontFamily:"inherit", outline:"none" }}>
-            <option value="submittedAt">Sort: Date</option>
-            <option value="teacherName">Sort: Name</option>
-            <option value="language">Sort: Language</option>
-            <option value="status">Sort: Status</option>
-          </select>
-          <button onClick={()=>setTsSortDir(d=>d==="asc"?"desc":"asc")}
-            style={{ background:"#F9FAFB", border:"1px solid #E5E7EB", borderRadius:7, padding:"6px 10px", fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"inherit", color:"#374151" }}>
-            {tsSortDir==="asc" ? "↑" : "↓"}
-          </button>
-          <button onClick={()=>setTsView("grid")} title="Card view"
-            style={{ background:tsView==="grid"?"rgba(157,23,77,0.12)":"#F9FAFB", border:`1px solid ${tsView==="grid"?"rgba(157,23,77,0.35)":"#E5E7EB"}`, borderRadius:7, padding:"5px 9px", color:tsView==="grid"?"#9D174D":"#6B7280", fontSize:13, cursor:"pointer" }}>▦</button>
-          <button onClick={()=>setTsView("list")} title="List view"
-            style={{ background:tsView==="list"?"rgba(157,23,77,0.12)":"#F9FAFB", border:`1px solid ${tsView==="list"?"rgba(157,23,77,0.35)":"#E5E7EB"}`, borderRadius:7, padding:"5px 9px", color:tsView==="list"?"#9D174D":"#6B7280", fontSize:13, cursor:"pointer" }}>☰</button>
-          <span style={{ fontSize:11, color:"#6B7280" }}>{rows.length} submission{rows.length!==1?"s":""}</span>
-        </div>
-      )}
-
-      {/* Card Grid / List */}
-      {rows.length > 0 && tsView === "grid" && (
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))", gap:14 }}>
-          {rows.map((s, i) => {
-            const status = getStatus(s);
-            const stColor = TS_STAGE_COLORS[status] || "#6B7280";
-            const audioLink = getAudio(s);
-            const type = getType(s);
-            const isDevotional = type === "Devotional/Spiritual";
-            const breached = isSlaBreached(s);
-            const typeColor = isDevotional ? C2.blue : C2.purple;
-            const typeLabel = isDevotional ? "Devotional" : "General";
-            const isExpanded = expandedRow === i;
-            return (
-              <div key={i}
-                style={{ background:"rgba(255,255,255,0.75)", border:`1px solid ${breached?"rgba(180,83,9,0.35)":"#E5E7EB"}`, borderRadius:14, overflow:"hidden", display:"flex", flexDirection:"column", transition:"all 0.2s" }}
-                onMouseEnter={e=>{ e.currentTarget.style.transform="translateY(-2px)"; e.currentTarget.style.boxShadow="0 6px 20px rgba(0,0,0,0.08)"; e.currentTarget.style.borderColor=`${stColor}55`; }}
-                onMouseLeave={e=>{ e.currentTarget.style.transform="none"; e.currentTarget.style.boxShadow="none"; e.currentTarget.style.borderColor=breached?"rgba(180,83,9,0.35)":"#E5E7EB"; }}>
-                {/* Compact art bar — not square, just a colour strip */}
-                <div style={{ position:"relative", height:80, background:`linear-gradient(135deg, ${typeColor}15, ${stColor}10)`, display:"flex", alignItems:"center", justifyContent:"center", overflow:"hidden" }}>
-                  <div style={{ fontSize:32, opacity:0.12 }}>♪</div>
-                  <div style={{ position:"absolute", top:8, left:8, display:"flex", gap:4 }}>
-                    {breached && <span style={{ fontSize:9, background:"rgba(180,83,9,0.85)", color:"#fff", borderRadius:4, padding:"2px 5px", fontWeight:700 }}>⚠ SLA</span>}
-                    <span style={{ fontSize:9, background:`${typeColor}cc`, color:"#fff", borderRadius:4, padding:"2px 5px", fontWeight:700 }}>{typeLabel}</span>
-                  </div>
-                  <span style={{ position:"absolute", bottom:8, right:8, fontSize:9, fontWeight:700, padding:"2px 7px", borderRadius:99, background:`${stColor}cc`, color:"#fff" }}>{status}</span>
-                  <div style={{ position:"absolute", bottom:0, left:0, right:0, height:2, background:"rgba(0,0,0,0.06)" }}>
-                    <div style={{ height:"100%", background:stColor, width: status==="Live"?"100%":status==="Release Prep"?"80%":status==="Agreement Pending"?"60%":status==="QC In Progress"?"40%":"15%", transition:"width 0.4s" }} />
-                  </div>
-                </div>
-                <div style={{ padding:"12px 13px 11px", flex:1, display:"flex", flexDirection:"column", gap:4 }}>
-                  <div style={{ fontSize:13, fontWeight:800, color:"#1A1A1A", lineHeight:1.3, overflow:"hidden", display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical" }}>{getTitle(s)}</div>
-                  <div style={{ fontSize:11, color:"#6B7280" }}>{getName(s)}</div>
-                  <div style={{ fontSize:10, color:"#9CA3AF" }}>{getLang(s)} · {getGenre(s)||"—"}</div>
-                  <div style={{ fontSize:10, color:"#B45309", fontWeight:600 }}>{getDate(s)}</div>
-                  <button onClick={()=>setExpandedRow(isExpanded?null:i)}
-                    style={{ background:"none", border:"none", textAlign:"left", color:"#9CA3AF", fontSize:10, cursor:"pointer", fontFamily:"inherit", padding:"2px 0", marginTop:2 }}>
-                    {isExpanded ? "▲ Less" : "▼ Details"}
-                  </button>
-                  {isExpanded && (
-                    <div style={{ background:"rgba(0,0,0,0.03)", borderRadius:8, padding:"9px 11px", marginTop:3, display:"flex", flexDirection:"column", gap:5 }}>
-                      <div style={{ fontSize:11, color:"#374151" }}><span style={{ color:"#9CA3AF" }}>Email: </span>{getEmail(s)||"—"}</div>
-                      <div style={{ fontSize:11, color:"#374151" }}><span style={{ color:"#9CA3AF" }}>Composer: </span>{getComposer(s)||"—"}</div>
-                      <div style={{ fontSize:11, color:"#374151" }}><span style={{ color:"#9CA3AF" }}>Recording: </span>{getRecType(s)||"—"}</div>
-                      {(getNotes(s)||getDesc(s)) && <div style={{ fontSize:11, color:"#6B7280", lineHeight:1.5 }}>{getNotes(s)||getDesc(s)}</div>}
-                    </div>
-                  )}
-                  <div style={{ display:"flex", gap:5, marginTop:"auto", paddingTop:7, flexWrap:"wrap" }}>
-                    {audioLink && <a href={audioLink} target="_blank" rel="noreferrer" style={{ display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(4,120,87,0.1)", border:"1px solid rgba(4,120,87,0.2)", borderRadius:6, color:C2.teal, fontSize:10, fontWeight:700, padding:"5px 7px", textDecoration:"none" }}>Listen</a>}
-                    {canEdit && <select value={status} onChange={e=>onStatusChange(s._rowIndex, e.target.value)} style={{ flex:2, background:`${stColor}10`, border:`1px solid ${stColor}30`, borderRadius:6, color:stColor, padding:"4px 6px", fontSize:10, fontWeight:700, fontFamily:"inherit", outline:"none", cursor:"pointer" }}>
-                      {TS_STAGES.map(st=><option key={st} value={st} style={{ background:"#fff", color:"#1A1A1A" }}>{st}</option>)}
-                    </select>}
-                    {canEdit && onMoveToProduction && (
-                      <button onClick={()=>onMoveToProduction(s)} title="Move to Production tracker"
-                        style={{ background:"rgba(157,23,77,0.1)", border:"1px solid rgba(157,23,77,0.25)", borderRadius:6, color:"#9D174D", fontSize:10, fontWeight:700, padding:"5px 8px", cursor:"pointer", fontFamily:"inherit", whiteSpace:"nowrap" }}>
-                        + Production
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* List View */}
-      {rows.length > 0 && tsView === "list" && (
-        <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-          {rows.map((s, i) => {
-            const status = getStatus(s);
-            const stColor = TS_STAGE_COLORS[status] || "#6B7280";
-            const audioLink = getAudio(s);
-            const type = getType(s);
-            const isDevotional = type === "Devotional/Spiritual";
-            const breached = isSlaBreached(s);
-            const typeColor = isDevotional ? C2.blue : C2.purple;
-            const isExpanded = expandedRow === i;
-            return (
-              <div key={i} style={{ background:"rgba(255,255,255,0.75)", border:`1px solid ${breached?"rgba(180,83,9,0.3)":"#E5E7EB"}`, borderRadius:12, padding:"13px 16px", transition:"all 0.15s", cursor:"pointer" }}
-                onMouseEnter={e=>e.currentTarget.style.borderColor=`${stColor}44`}
-                onMouseLeave={e=>e.currentTarget.style.borderColor=breached?"rgba(180,83,9,0.3)":"#E5E7EB"}
-                onClick={()=>setExpandedRow(isExpanded?null:i)}>
-                <div style={{ display:"flex", alignItems:"center", gap:12, flexWrap:"wrap" }}>
-                  <div style={{ flex:1, minWidth:160 }}>
-                    <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:2 }}>
-                      {breached && <span style={{ fontSize:9, background:"rgba(180,83,9,0.15)", color:"#B45309", borderRadius:4, padding:"1px 5px", fontWeight:700 }}>⚠ SLA</span>}
-                      <div style={{ fontSize:13, fontWeight:700, color:"#1A1A1A" }}>{getTitle(s)}</div>
-                    </div>
-                    <div style={{ fontSize:11, color:"#6B7280" }}>{getName(s)} · {getLang(s)} · {getGenre(s)||"—"}</div>
-                  </div>
-                  <span style={{ fontSize:9, fontWeight:700, background:`${typeColor}12`, color:typeColor, border:`1px solid ${typeColor}30`, borderRadius:99, padding:"2px 8px" }}>{isDevotional?"Devotional":"General"}</span>
-                  <span style={{ fontSize:10, color:"#9CA3AF" }}>{getDate(s)}</span>
-                  {canEdit ? (
-                    <select value={status} onClick={e=>e.stopPropagation()} onChange={e=>{ e.stopPropagation(); onStatusChange(s._rowIndex, e.target.value); }}
-                      style={{ background:`${stColor}10`, border:`1px solid ${stColor}35`, borderRadius:6, color:stColor, padding:"4px 8px", fontSize:11, fontWeight:700, fontFamily:"inherit", outline:"none", cursor:"pointer" }}>
-                      {TS_STAGES.map(st=><option key={st} value={st} style={{ background:"#fff", color:"#1A1A1A" }}>{st}</option>)}
-                    </select>
-                  ) : (
-                    <span style={{ fontSize:11, background:`${stColor}12`, color:stColor, borderRadius:5, padding:"3px 8px", fontWeight:700 }}>{status}</span>
-                  )}
-                  {audioLink && <a href={audioLink} target="_blank" rel="noreferrer" onClick={e=>e.stopPropagation()} style={{ fontSize:11, color:C2.teal, fontWeight:700, textDecoration:"none" }}>Listen</a>}
-                  {canEdit && onMoveToProduction && <button onClick={e=>{ e.stopPropagation(); onMoveToProduction(s); }} style={{ background:"rgba(157,23,77,0.1)", border:"1px solid rgba(157,23,77,0.25)", borderRadius:6, color:"#9D174D", fontSize:11, fontWeight:700, padding:"4px 9px", cursor:"pointer", fontFamily:"inherit" }}>+ Production</button>}
-                  <span style={{ fontSize:11, color:"#9CA3AF" }}>{isExpanded?"▲":"▼"}</span>
-                </div>
-                {isExpanded && (
-                  <div style={{ marginTop:10, paddingTop:10, borderTop:"1px solid rgba(0,0,0,0.05)", display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:10 }}>
-                    <div style={{ fontSize:11, color:"#374151" }}><span style={{ color:"#9CA3AF", display:"block", fontSize:10, marginBottom:2 }}>Contact</span>{getEmail(s)||"—"}<br/>{getPhone(s)||"—"}</div>
-                    <div style={{ fontSize:11, color:"#374151" }}><span style={{ color:"#9CA3AF", display:"block", fontSize:10, marginBottom:2 }}>Credits</span>Composer: {getComposer(s)||"—"}<br/>Recording: {getRecType(s)||"—"}</div>
-                    <div style={{ fontSize:11, color:"#6B7280", lineHeight:1.6 }}><span style={{ color:"#9CA3AF", display:"block", fontSize:10, marginBottom:2 }}>Notes</span>{getNotes(s)||getDesc(s)||"—"}</div>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function OriginalsSection({ data, canEdit, onUpdate, period, ytApiKey, airtableConfig, anthropicKey, accessToken }) {
+function OriginalsSection({ data, canEdit, onUpdate, period, ytApiKey, airtableConfig, anthropicKey }) {
   const [monthlyEntryFor, setMonthlyEntryFor] = useState(null); // index of flagship song
   const [tab, setTab] = useState("Pipeline");
   const { ask:confirmDelete, ConfirmModal:DeleteConfirmModal } = useConfirmDelete();
@@ -3683,95 +2835,6 @@ function OriginalsSection({ data, canEdit, onUpdate, period, ytApiKey, airtableC
   const [flagQ, setFlagQ] = useState("");
   const [flagSort, setFlagSort] = useState("title-asc");
   const [flagFilter, setFlagFilter] = useState("all");
-  const [toSubSection, setToSubSection] = useState("Submissions");
-  const [tsSubmissions, setTsSubmissions] = useState([]);
-  const [tsLoading, setTsLoading] = useState(false);
-  const [tsError, setTsError] = useState("");
-  const [tsQ, setTsQ] = useState("");
-  const [tsSortField, setTsSortField] = useState("submittedAt");
-  const [tsSortDir, setTsSortDir] = useState("desc");
-
-  const TS_SHEET_ID = "1LceHmgfvhgPXJNYZpSnIJ7ePYwpFwjNa7BlrMt-PUcg";
-  const TS_SHEET_NAME = "Teacher+Submissions";
-  const TS_FORM_URL = "https://talent-originals.vercel.app/ao-teacher-series.html";
-  const TS_SHEET_URL = `https://docs.google.com/spreadsheets/d/${TS_SHEET_ID}`;
-
-  const TS_STAGES = ["Submitted","QC In Progress","Agreement Pending","Release Prep","Live","Rejected"];
-  const TS_STAGE_COLORS = { "Submitted":"#1E40AF","QC In Progress":"#B45309","Agreement Pending":"#6D28D9","Release Prep":"#047857","Live":"#065F46","Rejected":"#DC2626" };
-
-  async function loadTsSubmissions(token) {
-    if (!token) { setTsError("Sign in to Google Drive to load submissions"); return; }
-    setTsLoading(true); setTsError("");
-    try {
-      const range = encodeURIComponent("Teacher Submissions!A:Z");
-      const res = await fetch(
-        `https://sheets.googleapis.com/v4/spreadsheets/${TS_SHEET_ID}/values/${range}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      if (!res.ok) { setTsError("Could not load sheet — check permissions"); setTsLoading(false); return; }
-      const json = await res.json();
-      const rows = json.values || [];
-      if (rows.length < 2) { setTsSubmissions([]); setTsLoading(false); return; }
-      const headers = rows[0].map(h => (h||"").trim());
-      const data = rows.slice(1).map((row, i) => {
-        const obj = { _rowIndex: i + 2 };
-        headers.forEach((h, hi) => { obj[h] = row[hi] || ""; });
-        if (!obj.status) obj.status = "Submitted";
-        return obj;
-      }).filter(r => r["teacherName"] || r["Teacher Name"] || r["songTitle"] || r["Song Title"]);
-      setTsSubmissions(data);
-    } catch(e) { setTsError("Error loading data"); }
-    setTsLoading(false);
-  }
-
-  async function updateTsStatus(rowIndex, newStatus, token) {
-    if (!token) return;
-    const range = encodeURIComponent(`Teacher Submissions!M${rowIndex}`);
-    try {
-      await fetch(
-        `https://sheets.googleapis.com/v4/spreadsheets/${TS_SHEET_ID}/values/${range}?valueInputOption=RAW`,
-        {
-          method: "PUT",
-          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-          body: JSON.stringify({ values: [[newStatus]] })
-        }
-      );
-      setTsSubmissions(prev => prev.map(s => s._rowIndex === rowIndex ? { ...s, status: newStatus } : s));
-    } catch(e) { console.error("Status update failed", e); }
-  }
-
-  // ── Release Metadata ──
-  const [rmSubmissions, setRmSubmissions] = React.useState([]);
-  const [rmLoading, setRmLoading] = React.useState(false);
-  const [rmError, setRmError] = React.useState("");
-  const [rmQ, setRmQ] = React.useState("");
-  const [rmExpanded, setRmExpanded] = React.useState(null);
-  const RM_SHEET_ID = "1kB80SrX2r_LQXnFzB78dJ_hOgMIBVk9pvwoN7ZOSSsc";
-  const RM_FORM_URL = "https://talent-originals.vercel.app/ao-release-form.html";
-  const RM_SHEET_URL = `https://docs.google.com/spreadsheets/d/${RM_SHEET_ID}`;
-  const RM_STAGES = ["Received","Under Review","Approved","In Production","Released","On Hold","Rejected"];
-  const RM_STAGE_COLORS = {"Received":"#1E40AF","Under Review":"#B45309","Approved":"#047857","In Production":"#6D28D9","Released":"#065F46","On Hold":"#6B7280","Rejected":"#DC2626"};
-  async function loadRmSubmissions(token) {
-    if (!token) { setRmError("Sign in to Google Drive first"); return; }
-    setRmLoading(true); setRmError("");
-    try {
-      const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${RM_SHEET_ID}/values/${encodeURIComponent("Release Metadata!A:AZ")}`, { headers: { Authorization: `Bearer ${token}` } });
-      if (!res.ok) { setRmError("Could not load sheet"); setRmLoading(false); return; }
-      const json = await res.json();
-      const rows = json.values || [];
-      if (rows.length < 2) { setRmSubmissions([]); setRmLoading(false); return; }
-      const headers = rows[0].map(h=>(h||"").trim());
-      setRmSubmissions(rows.slice(1).map((row,i)=>{ const obj={_rowIndex:i+2}; headers.forEach((h,hi)=>{obj[h]=row[hi]||"";}); if(!obj.rm_status) obj.rm_status="Received"; return obj; }).filter(r=>r.song_title||r.primary_name_1||r.submittedAt));
-    } catch(e) { setRmError("Error loading data"); }
-    setRmLoading(false);
-  }
-  async function updateRmStatus(rowIndex, newStatus, token) {
-    if (!token) return;
-    try {
-      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${RM_SHEET_ID}/values/${encodeURIComponent(`Release Metadata!B${rowIndex}`)}?valueInputOption=RAW`, { method:"PUT", headers:{Authorization:`Bearer ${token}`,"Content-Type":"application/json"}, body:JSON.stringify({values:[[newStatus]]}) });
-      setRmSubmissions(prev=>prev.map(s=>s._rowIndex===rowIndex?{...s,rm_status:newStatus}:s));
-    } catch(e) {}
-  }
 
   const flagship   = data.flagship   || [];
   const devotional = data.devotional || [];
@@ -3808,7 +2871,7 @@ function OriginalsSection({ data, canEdit, onUpdate, period, ytApiKey, airtableC
           <Btn onClick={()=>open(tab==="Flagship"?"flagship":"devotional",
             tab==="Flagship"
               ? {title:"",artist:"",artistType:"student",genre:"Hindi Pop",composer:"",lyricist:"",studio:"",producer:"Akshay",status:"planned",releaseDate:"",distributor:"GMJ",distributorLink:"",stages:{composition:"pending",recording:"pending",production:"pending",mixMaster:"pending",metadata:"pending",distribution:"pending"},notes:"",analytics:null}
-              : {name:"",phone:"",religion:"",deity:"",type:"",genre:"",trackCategory:"",language:"",scratchStatus:"not yet",scratchDate:"",finalStatus:"not yet",finalDate:"",prodStatus:"pending",releaseDate:"",finalTrackLink:"",ytLink:"",dspLink:"",albumArtStatus:"",notes:""}
+              : {name:"",phone:"",religion:"",deity:"",type:"",scratchStatus:"not yet",scratchDate:"",finalStatus:"not yet",finalDate:"",prodStatus:"pending",releaseDate:"",finalTrackLink:"",ytLink:"",dspLink:"",albumArtStatus:"",notes:""}
           )}>+ Add {tab==="Flagship"?"Original":"Teacher Track"}</Btn>
         )}
       />
@@ -3821,7 +2884,7 @@ function OriginalsSection({ data, canEdit, onUpdate, period, ytApiKey, airtableC
         <KPI val={scouting.length} label="Scouting Pipeline" sub={`${scouting.filter(s=>s.status==="interested"||s.status==="material sent").length} warm leads`} color="#6D28D9" />
       </div>
 
-      <SubTabs tabs={["Pipeline","Flagship","Teacher Originals","Scouting","Festival Calendar","Metadata"]} active={tab} onChange={v=>{setTab(v); if(v==="Teacher Originals") setToSubSection("Submissions");}} accent="#9D174D" />
+      <SubTabs tabs={["Pipeline","Flagship","Devotional","Scouting","Festival Calendar"]} active={tab} onChange={setTab} accent="#9D174D" />
       {tab==="Pipeline" && <OriginalsPlanningModule data={data} canEdit={canEdit} onUpdate={onUpdate} anthropicKey={anthropicKey} />}
 
       {/* ── Flagship ── */}
@@ -4202,577 +3265,283 @@ function OriginalsSection({ data, canEdit, onUpdate, period, ytApiKey, airtableC
         </div>
       )}
       <DeleteConfirmModal />
-            {tab==="Teacher Originals" && (
+      {tab==="Devotional" && (
         <>
-          {/* CSV Import Modal */}
+          {/* Devotional CSV Import Modal */}
           {showDevImport && (
             <DevotionalCSVImporter
               existing={devotional}
               onClose={()=>setShowDevImport(false)}
-              onImport={(updated)=>{ onUpdate({...data, devotional:updated}); setShowDevImport(false); }}
-            />
-          )}
-
-          {/* Combined header + KPIs */}
-          <div style={{ marginBottom:20 }}>
-            <div style={{ display:"grid", gridTemplateColumns:"repeat(6,1fr)", gap:10, marginBottom:14 }}>
-              {[
-                ["Submissions",    tsSubmissions.length,                                                                   "#1A1A1A"],
-                ["In Pipeline",    tsSubmissions.filter(s=>(s.status||"Submitted")!=="Submitted"&&(s.status||"")!=="Rejected").length, C.teal],
-                ["In Production",  devInProd,                                                                              C.gold],
-                ["Scratch Rcvd",   devScratch,                                                                             "#B45309"],
-                ["Released",       devotional.filter(d=>d.releaseDate&&d.prodStatus==="done").length,                     devotional.filter(d=>d.releaseDate&&d.prodStatus==="done").length===0?C.red:C.green],
-                ["Live on DSPs",   tsSubmissions.filter(s=>s.status==="Live").length,                                      C.green],
-              ].map(([l,v,c])=>(
-                <div key={l} style={{ background:"rgba(0,0,0,0.02)", border:"1px solid rgba(0,0,0,0.04)", borderRadius:12, padding:"10px 14px", textAlign:"center" }}>
-                  <div style={{ fontFamily:"monospace", fontSize:18, fontWeight:800, color:c }}>{v}</div>
-                  <div style={{ fontSize:10, color:"#6B7280", marginTop:2 }}>{l}</div>
-                </div>
-              ))}
-            </div>
-
-            {/* Sub-section toggle */}
-            <div style={{ display:"flex", gap:0, background:"#F3F4F6", borderRadius:10, padding:3, width:"fit-content" }}>
-              {[
-                ["Submissions", `Submissions (${tsSubmissions.length})`],
-                ["Production",  `Production (${devotional.filter(d=>!(d.releaseDate && d.prodStatus==="done")).length})`],
-                ["Released",    `Released (${devotional.filter(d=>d.releaseDate && d.prodStatus==="done").length})`],
-              ].map(([sec, label])=>(
-                <button key={sec} onClick={()=>setToSubSection(sec)}
-                  style={{ padding:"7px 18px", borderRadius:8, border:"none", fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"inherit",
-                    background: toSubSection===sec?"#fff":"transparent",
-                    color: toSubSection===sec ? (sec==="Released"?"#047857":"#9D174D") : "#6B7280",
-                    boxShadow: toSubSection===sec?"0 1px 4px rgba(0,0,0,0.1)":"none",
-                    transition:"all 0.15s" }}>
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* ── SUBMISSIONS sub-section ── */}
-          {toSubSection==="Submissions" && (
-            <TeacherSeriesTab
-              submissions={tsSubmissions}
-              loading={tsLoading}
-              error={tsError}
-              accessToken={accessToken}
-              onLoad={()=>loadTsSubmissions(accessToken)}
-              onStatusChange={(rowIndex, status)=>updateTsStatus(rowIndex, status, accessToken)}
-              tsQ={tsQ} setTsQ={setTsQ}
-              tsSortField={tsSortField} setTsSortField={setTsSortField}
-              tsSortDir={tsSortDir} setTsSortDir={setTsSortDir}
-              TS_STAGES={TS_STAGES} TS_STAGE_COLORS={TS_STAGE_COLORS}
-              TS_FORM_URL={TS_FORM_URL} TS_SHEET_URL={TS_SHEET_URL}
-              canEdit={canEdit}
-              onNavigateDevotional={()=>setToSubSection("Production")}
-              hideHeader={true}
-              onMoveToProduction={s=>{
-                const prefill = {
-                  name: s.teacherName||s["teacherName"]||"",
-                  phone: s.teacherPhone||s["teacherPhone"]||"",
-                  trackCategory: s.trackType||s["trackType"]||"",
-                  language: s.language||s["language"]||"",
-                  genre: s.genre||s["genre"]||"",
-                  type: s.genre||s["genre"]||"",
-                  religion: "", deity: "",
-                  scratchStatus:"not yet", scratchDate:"",
-                  finalStatus:"not yet", finalDate:"",
-                  prodStatus:"in progress",
-                  releaseDate:"", finalTrackLink: s.audioLink||s["audioLink"]||"",
-                  ytLink:"", dspLink:"", albumArtStatus:"", notes:"",
-                  songTitle: s.songTitle||s["songTitle"]||"",
-                };
-                open("devotional", prefill);
-                setToSubSection("Production");
+              onImport={(updated)=>{
+                onUpdate({...data, devotional: updated});
+                setShowDevImport(false);
               }}
             />
           )}
 
-          {/* ── RELEASED sub-section ── */}
-          {toSubSection==="Released" && (
-            <div>
-              {devotional.filter(d=>d.releaseDate && d.prodStatus==="done").length === 0 ? (
-                <div style={{ textAlign:"center", padding:"40px 20px", color:"#6B7280" }}>
-                  <div style={{ fontSize:32, marginBottom:12 }}>🎵</div>
-                  <div style={{ fontSize:14, fontWeight:700, color:"#1A1A1A", marginBottom:6 }}>No released tracks yet</div>
-                  <div style={{ fontSize:13 }}>Once a track has a release date in Production, it will appear here.</div>
+          {/* Stats */}
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
+            <div style={{ display:"flex", gap:10 }}>
+              {[["Total",devotional.length,"#1A1A1A"],["Scratch Rcvd",devScratch,C.gold],["In Prod",devInProd,C.teal],["Released",devReleased,devReleased===0?C.red:C.green]].map(([l,v,c])=>(
+                <div key={l} style={{ background:"rgba(0,0,0,0.02)", backdropFilter:"blur(12px)", border:"1px solid rgba(0,0,0,0.04)", borderRadius:12, padding:"10px 16px", textAlign:"center" }}>
+                  <div style={{ fontFamily:"monospace", fontSize:20, fontWeight:800, color:c }}>{v}</div>
+                  <div style={{ fontSize:10, color:"#6B7280" }}>{l}</div>
                 </div>
-              ) : (
-                <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))", gap:16 }}>
-                  {devotional.filter(d=>d.releaseDate && d.prodStatus==="done").map((d,i)=>{
+              ))}
+            </div>
+            <div style={{ display:"flex", gap:8 }}>
+              <Btn v="ghost" sm onClick={()=>setShowDevImport(true)}>⬆ Import from CSV</Btn>
+              <Btn v="ghost" sm onClick={()=>exportCSV(devotional,"devotional.csv")}>⬇ Export CSV</Btn>
+            </div>
+          </div>
+          {devReleased===0 && (
+            <div style={{ padding:"10px 14px", background:"rgba(201,123,90,0.1)", border:`1px solid ${C.red}40`, borderRadius:8, marginBottom:14, fontSize:12, color:C.red, fontWeight:600 }}>
+              ⚠ 0 releases so far — push one out now to build teacher momentum
+            </div>
+          )}
+
+          {/* Search + Sort + Filter + View toggle toolbar */}
+          <div style={{ display:"flex", gap:8, marginBottom:12, flexWrap:"wrap", alignItems:"center" }}>
+            <SearchBar q={devQ} setQ={setDevQ} placeholder="Search by name, religion, type…" compact />
+            <select value={devSort} onChange={e=>setDevSort(e.target.value)} style={{ background:"#F9FAFB", border:"1px solid #E5E7EB", borderRadius:7, padding:"5px 10px", color:"#374151", fontSize:11, fontFamily:"inherit", outline:"none" }}>
+              <option value="name-asc">Name A→Z</option>
+              <option value="name-desc">Name Z→A</option>
+              <option value="scratchDate-desc">Scratch date (newest)</option>
+              <option value="scratchDate-asc">Scratch date (oldest)</option>
+              <option value="religion-asc">Religion A→Z</option>
+              <option value="language-asc">Language A→Z</option>
+            </select>
+            <select value={devFilter} onChange={e=>setDevFilter(e.target.value)} style={{ background:"#F9FAFB", border:"1px solid #E5E7EB", borderRadius:7, padding:"5px 10px", color:"#374151", fontSize:11, fontFamily:"inherit", outline:"none" }}>
+              <option value="all">All</option>
+              <option value="scratch-received">Scratch Received</option>
+              <option value="final-received">Final Received</option>
+              <option value="in-progress">In Production</option>
+              <option value="released">Released</option>
+              <option value="not-yet">Not Started</option>
+            </select>
+            {/* Custom column filters */}
+            {devCustomCols.filter(c=>c.filterOptions?.length>0).map(col=>(
+              <select key={col.key}
+                value={devColFilters[col.key]||""}
+                onChange={e=>setDevColFilters(p=>({...p,[col.key]:e.target.value}))}
+                style={{ background:"#F9FAFB", border:`1px solid ${devColFilters[col.key]?"#9D174D":"#E5E7EB"}`, borderRadius:7, padding:"5px 10px", color:"#374151", fontSize:11, fontFamily:"inherit", outline:"none" }}>
+                <option value="">{col.label}: All</option>
+                {col.filterOptions.map(o=><option key={o} value={o}>{o}</option>)}
+              </select>
+            ))}
+            {/* View toggle + Column manager */}
+            <div style={{ marginLeft:"auto", display:"flex", gap:6 }}>
+              <button onClick={()=>setShowColManager(true)} title="Manage columns"
+                style={{ background:"#F9FAFB", border:"1px solid #E5E7EB", borderRadius:7, padding:"5px 10px", color:"#6B7280", fontSize:11, fontWeight:600, cursor:"pointer", fontFamily:"inherit" }}>
+                ⚙ Columns
+              </button>
+              <button onClick={()=>setDevView("grid")} title="Card view"
+                style={{ background:devView!=="list"?"rgba(157,23,77,0.12)":"#F9FAFB", border:`1px solid ${devView!=="list"?"rgba(157,23,77,0.35)":"#E5E7EB"}`, borderRadius:7, padding:"5px 9px", color:devView!=="list"?C.red:"#6B7280", fontSize:13, cursor:"pointer" }}>▦</button>
+              <button onClick={()=>setDevView("list")} title="Table view"
+                style={{ background:devView==="list"?"rgba(157,23,77,0.12)":"#F9FAFB", border:`1px solid ${devView==="list"?"rgba(157,23,77,0.35)":"#E5E7EB"}`, borderRadius:7, padding:"5px 9px", color:devView==="list"?C.red:"#6B7280", fontSize:13, cursor:"pointer" }}>☰</button>
+            </div>
+          </div>
+
+          {/* Column manager modal */}
+          {showColManager && (
+            <DevColManager
+              cols={devCustomCols}
+              onSave={cols=>{ setDevCustomCols(cols); try{localStorage.setItem("artium-dev-cols",JSON.stringify(cols));}catch{} setShowColManager(false); }}
+              onClose={()=>setShowColManager(false)}
+            />
+          )}
+
+          {/* Build filtered/sorted rows */}
+          {(()=>{
+            let rows = devQ.length<2 ? [...devotional] : devotional.filter(d=>`${d.name} ${d.religion} ${d.type} ${d.deity} ${d.phone||""} ${d.language||""}`.toLowerCase().includes(devQ.toLowerCase()));
+            if(devFilter==="scratch-received") rows=rows.filter(d=>d.scratchStatus==="received");
+            else if(devFilter==="final-received") rows=rows.filter(d=>d.finalStatus==="received");
+            else if(devFilter==="in-progress") rows=rows.filter(d=>d.prodStatus==="in progress");
+            else if(devFilter==="released") rows=rows.filter(d=>d.releaseDate);
+            else if(devFilter==="not-yet") rows=rows.filter(d=>d.scratchStatus!=="received"&&!d.releaseDate);
+            // Custom column filters
+            Object.entries(devColFilters).forEach(([key, val]) => {
+              if (val) rows = rows.filter(d => (d[key]||"") === val);
+            });
+            const [sf,sd]=devSort.split("-");
+            rows.sort((a,b)=>{ let av=a[sf]||"",bv=b[sf]||""; return sd==="asc"?String(av).localeCompare(String(bv)):String(bv).localeCompare(String(av)); });
+
+            // ── CARD VIEW ──────────────────────────────────────────────
+            if (devView !== "list") return (
+              <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))", gap:18 }}>
+                {rows.map(d => {
+                  const realIdx = devotional.findIndex(x=>x.id===d.id);
+                  const statusColor = d.releaseDate ? C.green : d.prodStatus==="in progress" ? C.gold : d.scratchStatus==="received" ? C.teal : "#6B7280";
+                  const statusLabel = d.releaseDate ? "released" : d.prodStatus==="in progress" ? "in prod" : d.scratchStatus==="received" ? "scratch rcvd" : "not started";
+                  return (
+                    <div key={d.id}
+                      style={{ background:"rgba(255,255,255,0.75)", border:"1px solid #E5E7EB", borderRadius:16, overflow:"hidden", display:"flex", flexDirection:"column", transition:"all 0.2s" }}
+                      onMouseEnter={e=>{ e.currentTarget.style.border="1px solid rgba(157,23,77,0.3)"; e.currentTarget.style.transform="translateY(-2px)"; e.currentTarget.style.boxShadow="0 8px 24px rgba(0,0,0,0.1)"; }}
+                      onMouseLeave={e=>{ e.currentTarget.style.border="1px solid #E5E7EB"; e.currentTarget.style.transform="none"; e.currentTarget.style.boxShadow="none"; }}>
+
+                      {/* Art / avatar area */}
+                      <div style={{ position:"relative", aspectRatio:"1/1", background:"rgba(157,23,77,0.04)", display:"flex", alignItems:"center", justifyContent:"center", overflow:"hidden" }}>
+                        <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center" }}>
+                          <PhotoUploader photoKey={`devotional-card-${d.id}`} size={200} shape="square" />
+                        </div>
+                        {/* Religion tag top-left */}
+                        {d.religion && (
+                          <div style={{ position:"absolute", top:8, left:8, background:"rgba(0,0,0,0.55)", backdropFilter:"blur(6px)", borderRadius:6, padding:"2px 8px", fontSize:9, fontWeight:700, color:"rgba(255,255,255,0.85)", letterSpacing:"0.05em" }}>
+                            {d.religion}{d.deity ? ` · ${d.deity}` : ""}
+                          </div>
+                        )}
+                        {/* Progress bar at bottom */}
+                        <div style={{ position:"absolute", bottom:0, left:0, right:0, height:3, background:"rgba(0,0,0,0.15)" }}>
+                          <div style={{ width: d.releaseDate?"100%": d.prodStatus==="in progress"?"66%": d.scratchStatus==="received"?"33%":"0%", height:"100%", background:statusColor, borderRadius:99, transition:"width 0.4s" }}/>
+                        </div>
+                      </div>
+
+                      {/* Card body */}
+                      <div style={{ padding:"14px 14px 12px", flex:1, display:"flex", flexDirection:"column", gap:5 }}>
+                        {/* Name + status */}
+                        <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:6 }}>
+                          <div style={{ fontSize:14, fontWeight:700, color:"#1A1A1A", fontFamily:"'Playfair Display',serif", lineHeight:1.3, flex:1 }}>{d.name}</div>
+                          <span style={{ fontSize:9, fontWeight:700, padding:"2px 7px", borderRadius:99, flexShrink:0, whiteSpace:"nowrap",
+                            background:`${statusColor}15`, color:statusColor, border:`1px solid ${statusColor}40` }}>
+                            {statusLabel}
+                          </span>
+                        </div>
+                        {/* Type */}
+                        {d.type && <div style={{ fontSize:11, color:"#6B7280" }}>{d.type}</div>}
+                        {/* Release date */}
+                        {d.releaseDate && <div style={{ fontSize:10, color:C.green, fontWeight:600 }}>✓ Released {d.releaseDate}</div>}
+                        {/* Scratch date */}
+                        {!d.releaseDate && d.scratchDate && <div style={{ fontSize:10, color:C.gold, fontWeight:600 }}>Scratch: {d.scratchDate}</div>}
+                        {/* Notes */}
+                        {d.notes && <div style={{ fontSize:10, color:"#9CA3AF", lineHeight:1.4, marginTop:2 }}>{d.notes}</div>}
+
+                        {/* Links row */}
+                        {(d.ytLink || d.dspLink || d.finalTrackLink) && (
+                          <div style={{ display:"flex", gap:6, marginTop:2, flexWrap:"wrap" }}>
+                            {d.ytLink && <a href={d.ytLink} target="_blank" rel="noreferrer" style={{ fontSize:10, color:"#DC2626", fontWeight:700 }}>▶ YT</a>}
+                            {d.dspLink && <a href={d.dspLink} target="_blank" rel="noreferrer" style={{ fontSize:10, color:C.green, fontWeight:700 }}>🎧 DSP</a>}
+                            {d.finalTrackLink && <a href={d.finalTrackLink} target="_blank" rel="noreferrer" style={{ fontSize:10, color:C.teal, fontWeight:700 }}>🎵 Track</a>}
+                          </div>
+                        )}
+
+                        {/* Edit button */}
+                        {canEdit && (
+                          <div style={{ display:"flex", gap:6, marginTop:"auto", paddingTop:8 }}>
+                            <button onClick={()=>open("devotional",{...d},realIdx)}
+                              style={{ flex:1, background:"rgba(157,23,77,0.06)", border:"1px solid rgba(157,23,77,0.15)", borderRadius:7, color:C.red, fontSize:10, fontWeight:700, padding:"5px 8px", cursor:"pointer", fontFamily:"inherit" }}>
+                              ✏️ Edit
+                            </button>
+                            <button onClick={()=>delDevotional(realIdx)}
+                              style={{ background:"rgba(220,38,38,0.06)", border:"1px solid rgba(220,38,38,0.15)", borderRadius:7, color:"#DC2626", fontSize:10, padding:"5px 8px", cursor:"pointer" }}>🗑</button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+                {rows.length === 0 && (
+                  <div style={{ gridColumn:"1/-1", textAlign:"center", padding:40, color:"#6B7280", fontSize:13 }}>
+                    No tracks match this filter.
+                  </div>
+                )}
+              </div>
+            );
+
+            // ── TABLE VIEW ─────────────────────────────────────────────
+            return (
+          <div style={{ overflowX:"auto" }}>
+            <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
+              <thead>
+                <tr style={{ borderBottom:"1px solid #E5E7EB" }}>
+                  {["Teacher","Phone","Religion","Language","Type","Scratch","Final Track","Prod","Release Date","Links","Notes",
+                    ...devCustomCols.map(c=>c.label),""].map(h=>(
+                    <th key={h} style={{ textAlign:"left", padding:"7px 10px", fontSize:10, fontWeight:700, color:"#6B7280", textTransform:"uppercase", letterSpacing:"0.05em", whiteSpace:"nowrap" }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((d,i)=>{
                     const realIdx = devotional.findIndex(x=>x.id===d.id);
                     return (
-                      <div key={d.id||i} style={{ background:"rgba(255,255,255,0.78)", border:"1px solid rgba(4,120,87,0.2)", borderRadius:16, overflow:"hidden", display:"flex", flexDirection:"column", transition:"all 0.2s" }}
-                        onMouseEnter={e=>{ e.currentTarget.style.transform="translateY(-2px)"; e.currentTarget.style.boxShadow="0 8px 24px rgba(4,120,87,0.1)"; }}
-                        onMouseLeave={e=>{ e.currentTarget.style.transform="none"; e.currentTarget.style.boxShadow="none"; }}>
-                        {/* Art */}
-                        <div style={{ position:"relative", aspectRatio:"1/1", background:"rgba(4,120,87,0.06)", display:"flex", alignItems:"center", justifyContent:"center", overflow:"hidden" }}>
-                          <PhotoUploader photoKey={`devotional-${d.id}`} size={200} shape="square" />
-                          <div style={{ position:"absolute", top:10, left:10 }}>
-                            <span style={{ fontSize:9, background:"rgba(4,120,87,0.85)", color:"#fff", borderRadius:4, padding:"2px 7px", fontWeight:700 }}>RELEASED</span>
+                      <tr key={d.id} style={{ borderBottom:"1px solid rgba(0,0,0,0.03)", transition:"background 0.15s" }} onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,0.02)"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                        <td style={{ padding:"8px 10px" }}>
+                          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                            <PhotoUploader photoKey={`devotional-${d.id}`} size={28} shape="circle" />
+                            <div>
+                              <div style={{ fontWeight:700, color:"#1A1A1A", whiteSpace:"nowrap" }}>{d.name}</div>
+                              {d.deity&&<div style={{ fontSize:10, color:"#6B7280" }}>{d.deity}</div>}
+                            </div>
                           </div>
-                        </div>
-                        {/* Body */}
-                        <div style={{ padding:"14px", flex:1, display:"flex", flexDirection:"column", gap:5 }}>
-                          <div style={{ fontSize:14, fontWeight:800, color:"#1A1A1A" }}>{d.name}</div>
-                          <div style={{ fontSize:11, color:"#6B7280" }}>{d.trackCategory||d.religion||"—"} · {d.language||"—"}</div>
-                          <div style={{ fontSize:11, color:"#6B7280" }}>{d.genre||d.type||"—"}</div>
-                          <div style={{ fontSize:11, color:"#047857", fontWeight:600 }}>Released {d.releaseDate}</div>
-                          <div style={{ display:"flex", gap:6, marginTop:"auto", paddingTop:8, flexWrap:"wrap" }}>
-                            {d.dspLink && <a href={d.dspLink} target="_blank" rel="noreferrer" style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(4,120,87,0.1)", border:"1px solid rgba(4,120,87,0.25)", borderRadius:7, color:"#047857", fontSize:10, fontWeight:700, padding:"6px 8px", textDecoration:"none" }}>Spotify / DSP</a>}
-                            {d.ytLink && <a href={d.ytLink} target="_blank" rel="noreferrer" style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(220,38,38,0.08)", border:"1px solid rgba(220,38,38,0.2)", borderRadius:7, color:"#DC2626", fontSize:10, fontWeight:700, padding:"6px 8px", textDecoration:"none" }}>YouTube</a>}
-                            {canEdit && <button onClick={()=>open("devotional",{...d},realIdx)} style={{ background:"rgba(0,0,0,0.03)", border:"1px solid #E5E7EB", borderRadius:7, color:"#6B7280", fontSize:11, padding:"5px 8px", cursor:"pointer" }}>✏️</button>}
-                            {canEdit && <button onClick={()=>{ const arr=[...devotional]; arr[realIdx]={...arr[realIdx],prodStatus:"in progress",releaseDate:""}; onUpdate({...data,devotional:arr}); }}
-                              style={{ background:"rgba(180,83,9,0.06)", border:"1px solid rgba(180,83,9,0.2)", borderRadius:7, color:"#B45309", fontSize:9, fontWeight:700, padding:"5px 8px", cursor:"pointer", fontFamily:"inherit" }}>
-                              ↩ Back to Prod
-                            </button>}
+                        </td>
+                        <td style={{ padding:"9px 12px", color:"#6B7280" }}>{d.phone||"—"}</td>
+                        <td style={{ padding:"9px 12px", color:"#374151" }}>{d.religion||"—"}</td>
+                        <td style={{ padding:"9px 12px", color:"#374151" }}>{d.language||"—"}</td>
+                        <td style={{ padding:"9px 12px", color:"#374151" }}>{d.type||"—"}</td>
+                        <td style={{ padding:"9px 10px" }}>
+                          <Chip status={d.scratchStatus==="received"?"done":"pending"} label={d.scratchStatus==="received"?"✓ Rcvd":"Not Yet"} />
+                          {d.scratchDate&&<div style={{ fontSize:9, color:"#6B7280", marginTop:2 }}>{d.scratchDate}</div>}
+                        </td>
+                        <td style={{ padding:"9px 10px" }}>
+                          <Chip status={d.finalStatus==="received"?"done":"pending"} label={d.finalStatus==="received"?"✓ Rcvd":"Not Yet"} />
+                          <LastUpdatedBadge dateStr={d.updatedAt} warnAfterDays={30} style={{ fontSize:9 }} />
+                          {d.finalDate&&<div style={{ fontSize:9, color:"#6B7280", marginTop:2 }}>{d.finalDate}</div>}
+                        </td>
+                        <td style={{ padding:"9px 10px" }}>
+                          <Chip status={d.prodStatus==="in progress"?"in progress":d.prodStatus==="done"?"done":"pending"} />
+                          {d.albumArtStatus&&<div style={{ fontSize:9, color:"#6B7280", marginTop:2 }}>Art: {d.albumArtStatus}</div>}
+                        </td>
+                        <td style={{ padding:"9px 10px" }}>
+                          {d.releaseDate
+                            ? <span style={{ color:C.green, fontWeight:700, fontSize:11 }}>✓ {d.releaseDate}</span>
+                            : <span style={{ color:"#6B7280" }}>—</span>}
+                        </td>
+                        <td style={{ padding:"9px 10px" }}>
+                          <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
+                            {d.finalTrackLink&&<a href={d.finalTrackLink} target="_blank" rel="noreferrer" style={{ fontSize:10, color:C.teal, fontWeight:700, whiteSpace:"nowrap" }}>🎵 Track</a>}
+                            {d.ytLink&&<a href={d.ytLink} target="_blank" rel="noreferrer" style={{ fontSize:10, color:"#DC2626", fontWeight:700, whiteSpace:"nowrap" }}>▶ YouTube</a>}
+                            {d.dspLink&&<a href={d.dspLink} target="_blank" rel="noreferrer" style={{ fontSize:10, color:C.green, fontWeight:700, whiteSpace:"nowrap" }}>🎧 DSP</a>}
+                            {!d.finalTrackLink&&!d.ytLink&&!d.dspLink&&<span style={{ color:"#6B7280" }}>—</span>}
                           </div>
-                        </div>
-                      </div>
+                        </td>
+                        <td style={{ padding:"9px 12px", color:"#6B7280", maxWidth:160 }}>{d.notes||"—"}</td>
+                        {/* Custom columns */}
+                        {devCustomCols.map(col=>(
+                          <td key={col.key} style={{ padding:"9px 12px", color:"#374151" }}>
+                            {canEdit ? (
+                              <input
+                                defaultValue={d[col.key]||""}
+                                onBlur={e=>{
+                                  const val = e.target.value;
+                                  const updated = devotional.map((x,xi)=>xi===realIdx?{...x,[col.key]:val}:x);
+                                  onUpdate({...data, devotional:updated});
+                                }}
+                                style={{ width:"100%", minWidth:80, border:"1px solid transparent", borderRadius:5,
+                                  background:"transparent", fontSize:11, fontFamily:"inherit", padding:"2px 4px",
+                                  outline:"none", color:"#374151" }}
+                                onFocus={e=>{e.target.style.borderColor="#9D174D";e.target.style.background="#FFF";}}
+                                onBlur2={e=>{e.target.style.borderColor="transparent";e.target.style.background="transparent";}}
+                              />
+                            ) : (d[col.key]||"—")}
+                          </td>
+                        ))}
+                        {canEdit && (
+                          <td style={{ padding:"9px 10px" }}>
+                            <div style={{ display:"flex", gap:4 }}>
+                              <Btn v="ghost" sm onClick={()=>open("devotional",{...d},realIdx)}>✏️</Btn>
+                              <Btn v="danger" sm onClick={()=>delDevotional(realIdx)}>🗑</Btn>
+                            </div>
+                          </td>
+                        )}
+                      </tr>
                     );
                   })}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* ── PRODUCTION sub-section ── */}
-          {toSubSection==="Production" && (
-            <>
-              {devReleased===0 && (
-                <div style={{ padding:"10px 14px", background:"rgba(201,123,90,0.1)", border:`1px solid ${C.red}40`, borderRadius:8, marginBottom:14, fontSize:12, color:C.red, fontWeight:600 }}>
-                  0 releases so far — push one out now to build teacher momentum
-                </div>
-              )}
-
-              {/* Toolbar */}
-              <div style={{ display:"flex", gap:8, marginBottom:12, flexWrap:"wrap", alignItems:"center" }}>
-                <SearchBar q={devQ} setQ={setDevQ} placeholder="Search by name, religion, type…" compact />
-                <select value={devSort} onChange={e=>setDevSort(e.target.value)} style={{ background:"#F9FAFB", border:"1px solid #E5E7EB", borderRadius:7, padding:"5px 10px", color:"#374151", fontSize:11, fontFamily:"inherit", outline:"none" }}>
-                  <option value="name-asc">Name A→Z</option>
-                  <option value="name-desc">Name Z→A</option>
-                  <option value="scratchDate-desc">Scratch date (newest)</option>
-                  <option value="scratchDate-asc">Scratch date (oldest)</option>
-                  <option value="religion-asc">Religion A→Z</option>
-                  <option value="language-asc">Language A→Z</option>
-                </select>
-                <select value={devFilter} onChange={e=>setDevFilter(e.target.value)} style={{ background:"#F9FAFB", border:"1px solid #E5E7EB", borderRadius:7, padding:"5px 10px", color:"#374151", fontSize:11, fontFamily:"inherit", outline:"none" }}>
-                  <option value="all">All</option>
-                  <option value="scratch-received">Scratch Received</option>
-                  <option value="final-received">Final Received</option>
-                  <option value="in-progress">In Production</option>
-                  <option value="released">Released</option>
-                  <option value="not-yet">Not Started</option>
-                </select>
-                {devCustomCols.filter(c=>c.filterOptions?.length>0).map(col=>(
-                  <select key={col.key} value={devColFilters[col.key]||""}
-                    onChange={e=>setDevColFilters(p=>({...p,[col.key]:e.target.value}))}
-                    style={{ background:"#F9FAFB", border:`1px solid ${devColFilters[col.key]?"#9D174D":"#E5E7EB"}`, borderRadius:7, padding:"5px 10px", color:"#374151", fontSize:11, fontFamily:"inherit", outline:"none" }}>
-                    <option value="">{col.label}: All</option>
-                    {col.filterOptions.map(o=><option key={o} value={o}>{o}</option>)}
-                  </select>
-                ))}
-                <div style={{ marginLeft:"auto", display:"flex", gap:6 }}>
-                  <Btn v="ghost" sm onClick={()=>setShowDevImport(true)}>⬆ Import CSV</Btn>
-                  <Btn v="ghost" sm onClick={()=>exportCSV(devotional,"devotional.csv")}>⬇ Export CSV</Btn>
-                  <button onClick={()=>setShowColManager(true)} style={{ background:"#F9FAFB", border:"1px solid #E5E7EB", borderRadius:7, padding:"5px 10px", color:"#6B7280", fontSize:11, fontWeight:600, cursor:"pointer", fontFamily:"inherit" }}>⚙ Columns</button>
-                  <button onClick={()=>setDevView("grid")} style={{ background:devView!=="list"?"rgba(157,23,77,0.12)":"#F9FAFB", border:`1px solid ${devView!=="list"?"rgba(157,23,77,0.35)":"#E5E7EB"}`, borderRadius:7, padding:"5px 9px", color:devView!=="list"?C.red:"#6B7280", fontSize:13, cursor:"pointer" }}>▦</button>
-                  <button onClick={()=>setDevView("list")} style={{ background:devView==="list"?"rgba(157,23,77,0.12)":"#F9FAFB", border:`1px solid ${devView==="list"?"rgba(157,23,77,0.35)":"#E5E7EB"}`, borderRadius:7, padding:"5px 9px", color:devView==="list"?C.red:"#6B7280", fontSize:13, cursor:"pointer" }}>☰</button>
-                </div>
-              </div>
-
-              {/* Column manager modal */}
-              {showColManager && (
-                <DevColManager
-                  cols={devCustomCols}
-                  onSave={cols=>{ setDevCustomCols(cols); try{localStorage.setItem("artium-dev-cols",JSON.stringify(cols));}catch{} setShowColManager(false); }}
-                  onClose={()=>setShowColManager(false)}
-                />
-              )}
-
-              {/* Add teacher track button */}
-              {canEdit && (
-                <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:10 }}>
-                  <Btn onClick={()=>open("devotional",{name:"",phone:"",religion:"",deity:"",type:"",genre:"",trackCategory:"",language:"",scratchStatus:"not yet",scratchDate:"",finalStatus:"not yet",finalDate:"",prodStatus:"pending",releaseDate:"",finalTrackLink:"",ytLink:"",dspLink:"",albumArtStatus:"",notes:""})}>
-                    + Add Teacher Track
-                  </Btn>
-                </div>
-              )}
-
-              {/* Production table/grid — reuse existing devotional render */}
-              {(()=>{
-                let rows = (devQ.length<2 ? [...devotional] : devotional.filter(d=>`${d.name} ${d.religion} ${d.type} ${d.deity} ${d.phone||""} ${d.language||""}`.toLowerCase().includes(devQ.toLowerCase()))).filter(d=>!(d.releaseDate && d.prodStatus==="done"));
-                if(devFilter==="scratch-received") rows=rows.filter(d=>d.scratchStatus==="received");
-                if(devFilter==="final-received")   rows=rows.filter(d=>d.finalStatus==="received");
-                if(devFilter==="in-progress")       rows=rows.filter(d=>d.prodStatus==="in progress");
-                if(devFilter==="released")          rows=rows.filter(d=>d.releaseDate);
-                if(devFilter==="not-yet")           rows=rows.filter(d=>d.scratchStatus!=="received"&&d.finalStatus!=="received");
-                Object.entries(devColFilters).forEach(([k,v])=>{ if(v) rows=rows.filter(d=>(d[k]||"")=== v); });
-                if(devSort==="name-asc")           rows.sort((a,b)=>(a.name||"").localeCompare(b.name||""));
-                if(devSort==="name-desc")          rows.sort((a,b)=>(b.name||"").localeCompare(a.name||""));
-                if(devSort==="scratchDate-desc")   rows.sort((a,b)=>new Date(b.scratchDate||0)-new Date(a.scratchDate||0));
-                if(devSort==="scratchDate-asc")    rows.sort((a,b)=>new Date(a.scratchDate||0)-new Date(b.scratchDate||0));
-                if(devSort==="religion-asc")       rows.sort((a,b)=>(a.religion||"").localeCompare(b.religion||""));
-                if(devSort==="language-asc")       rows.sort((a,b)=>(a.language||"").localeCompare(b.language||""));
-
-                if(devView !== "list") return (
-                  <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))", gap:14 }}>
-                    {rows.length===0 && <div style={{ gridColumn:"1/-1", fontSize:13, color:"#6B7280", padding:"20px 0" }}>No tracks match this filter.</div>}
-                    {rows.map((d,i)=>{
-                      const realIdx = devotional.findIndex(x=>x.id===d.id);
-                      return (
-                        <div key={d.id||i} style={{ background:"rgba(255,255,255,0.78)", border:"1px solid #E5E7EB", borderRadius:14, overflow:"hidden", display:"flex", flexDirection:"column", transition:"all 0.2s" }}
-                          onMouseEnter={e=>{ e.currentTarget.style.borderColor="rgba(157,23,77,0.3)"; e.currentTarget.style.transform="translateY(-2px)"; e.currentTarget.style.boxShadow="0 6px 20px rgba(0,0,0,0.07)"; }}
-                          onMouseLeave={e=>{ e.currentTarget.style.borderColor="#E5E7EB"; e.currentTarget.style.transform="none"; e.currentTarget.style.boxShadow="none"; }}>
-                          <div style={{ position:"relative", aspectRatio:"1/1", background:"rgba(0,0,0,0.03)", display:"flex", alignItems:"center", justifyContent:"center" }}>
-                            <PhotoUploader photoKey={`devotional-${d.id}`} size={200} shape="square" />
-                          </div>
-                          <div style={{ padding:"12px 14px", flex:1, display:"flex", flexDirection:"column", gap:5 }}>
-                            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:6 }}>
-                              <div style={{ fontSize:13, fontWeight:700, color:"#1A1A1A", flex:1, overflow:"hidden", display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical" }}>{d.name}</div>
-                              <Chip status={d.prodStatus==="done"?"done":d.prodStatus==="in progress"?"in progress":"pending"} label={d.prodStatus==="done"?"Released":d.prodStatus==="in progress"?"In Prod":"Pending"} />
-                            </div>
-                            <div style={{ fontSize:11, color:"#6B7280" }}>{d.trackCategory||d.religion||"—"}{d.deity?` · ${d.deity}`:""}</div>
-                            <div style={{ fontSize:11, color:"#6B7280" }}>{d.language||""}{d.genre||d.type?` · ${d.genre||d.type}`:""}</div>
-                            <div style={{ display:"flex", gap:5, marginTop:"auto", paddingTop:8, flexWrap:"wrap" }}>
-                              {d.finalTrackLink&&<a href={d.finalTrackLink} target="_blank" rel="noreferrer" style={{ fontSize:10, color:C.teal, fontWeight:700, textDecoration:"none" }}>Track</a>}
-                              {d.ytLink&&<a href={d.ytLink} target="_blank" rel="noreferrer" style={{ fontSize:10, color:"#DC2626", fontWeight:700, textDecoration:"none" }}>YT</a>}
-                              {canEdit && d.prodStatus!=="done" && <button onClick={()=>open("devotional",{...d, prodStatus:"done", releaseDate: d.releaseDate||new Date().toLocaleDateString("en-IN",{month:"short",year:"numeric"})},realIdx)}
-                                style={{ fontSize:9, background:"rgba(4,120,87,0.1)", border:"1px solid rgba(4,120,87,0.3)", borderRadius:5, color:"#047857", padding:"3px 7px", cursor:"pointer", fontFamily:"inherit", fontWeight:700 }}>
-                                Mark Released
-                              </button>}
-                              {canEdit && <button onClick={()=>open("devotional",{...d},realIdx)} style={{ marginLeft:"auto", background:"rgba(0,0,0,0.03)", border:"1px solid #E5E7EB", borderRadius:6, color:"#6B7280", fontSize:11, padding:"4px 8px", cursor:"pointer" }}>✏️</button>}
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                );
-
-                return (
-                  <div style={{ overflowX:"auto" }}>
-                    <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
-                      <thead>
-                        <tr style={{ borderBottom:"1px solid #E5E7EB" }}>
-                          {["Teacher","Phone","Category","Language","Genre","Scratch","Final Track","Prod","Release Date","Links","Notes",...devCustomCols.map(c=>c.label),""].map(h=>(
-                            <th key={h} style={{ textAlign:"left", padding:"7px 10px", fontSize:10, fontWeight:700, color:"#6B7280", textTransform:"uppercase", letterSpacing:"0.05em", whiteSpace:"nowrap" }}>{h}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {rows.map((d,i)=>{
-                          const realIdx = devotional.findIndex(x=>x.id===d.id);
-                          return (
-                            <tr key={d.id} style={{ borderBottom:"1px solid rgba(0,0,0,0.03)" }}
-                              onMouseEnter={e=>e.currentTarget.style.background="rgba(0,0,0,0.01)"}
-                              onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-                              <td style={{ padding:"8px 10px" }}>
-                                <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                                  <PhotoUploader photoKey={`devotional-${d.id}`} size={28} shape="circle" />
-                                  <div>
-                                    <div style={{ fontWeight:700, color:"#1A1A1A", whiteSpace:"nowrap" }}>{d.name}</div>
-                                    {d.deity&&<div style={{ fontSize:10, color:"#6B7280" }}>{d.deity}</div>}
-                                  </div>
-                                </div>
-                              </td>
-                              <td style={{ padding:"9px 12px", color:"#6B7280" }}>{d.phone||"—"}</td>
-                              <td style={{ padding:"9px 12px", color:"#374151" }}>{d.trackCategory||d.religion||"—"}</td>
-                              <td style={{ padding:"9px 12px", color:"#374151" }}>{d.language||"—"}</td>
-                              <td style={{ padding:"9px 12px", color:"#374151" }}>{d.genre||d.type||"—"}</td>
-                              <td style={{ padding:"9px 10px" }}>
-                                <Chip status={d.scratchStatus==="received"?"done":"pending"} label={d.scratchStatus==="received"?"✓ Rcvd":"Not Yet"} />
-                                {d.scratchDate&&<div style={{ fontSize:9, color:"#6B7280", marginTop:2 }}>{d.scratchDate}</div>}
-                              </td>
-                              <td style={{ padding:"9px 10px" }}>
-                                <Chip status={d.finalStatus==="received"?"done":"pending"} label={d.finalStatus==="received"?"✓ Rcvd":"Not Yet"} />
-                                <LastUpdatedBadge dateStr={d.updatedAt} warnAfterDays={30} style={{ fontSize:9 }} />
-                              </td>
-                              <td style={{ padding:"9px 10px" }}>
-                                <Chip status={d.prodStatus==="in progress"?"in progress":d.prodStatus==="done"?"done":"pending"} />
-                                {d.albumArtStatus&&<div style={{ fontSize:9, color:"#6B7280", marginTop:2 }}>Art: {d.albumArtStatus}</div>}
-                              </td>
-                              <td style={{ padding:"9px 10px" }}>
-                                {d.releaseDate?<span style={{ color:C.green, fontWeight:700, fontSize:11 }}>✓ {d.releaseDate}</span>:<span style={{ color:"#6B7280" }}>—</span>}
-                              </td>
-                              <td style={{ padding:"9px 10px" }}>
-                                <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
-                                  {d.finalTrackLink&&<a href={d.finalTrackLink} target="_blank" rel="noreferrer" style={{ fontSize:10, color:C.teal, fontWeight:700, whiteSpace:"nowrap" }}>Track</a>}
-                                  {d.ytLink&&<a href={d.ytLink} target="_blank" rel="noreferrer" style={{ fontSize:10, color:"#DC2626", fontWeight:700 }}>YouTube</a>}
-                                  {d.dspLink&&<a href={d.dspLink} target="_blank" rel="noreferrer" style={{ fontSize:10, color:C.green, fontWeight:700 }}>DSP</a>}
-                                  {!d.finalTrackLink&&!d.ytLink&&!d.dspLink&&<span style={{ color:"#6B7280" }}>—</span>}
-                                </div>
-                              </td>
-                              <td style={{ padding:"9px 12px", color:"#6B7280", maxWidth:160 }}>{d.notes||"—"}</td>
-                              {devCustomCols.map(col=>(
-                                <td key={col.key} style={{ padding:"9px 12px", color:"#374151" }}>
-                                  {canEdit ? (
-                                    <input defaultValue={d[col.key]||""} onBlur={e=>{ const val=e.target.value; const updated=devotional.map((x,xi)=>xi===realIdx?{...x,[col.key]:val}:x); onUpdate({...data,devotional:updated}); }}
-                                      style={{ width:"100%", minWidth:80, border:"1px solid transparent", borderRadius:5, background:"transparent", fontSize:11, fontFamily:"inherit", padding:"2px 4px", outline:"none", color:"#374151" }}
-                                      onFocus={e=>{e.target.style.borderColor="#9D174D";e.target.style.background="#FFF";}}
-                                    />
-                                  ) : (d[col.key]||"—")}
-                                </td>
-                              ))}
-                              {canEdit && (
-                                <td style={{ padding:"9px 10px" }}>
-                                  <div style={{ display:"flex", gap:4 }}>
-                                    <Btn v="ghost" sm onClick={()=>open("devotional",{...d},realIdx)}>✏️</Btn>
-                                    <Btn v="danger" sm onClick={()=>delDevotional(realIdx)}>🗑</Btn>
-                                  </div>
-                                </td>
-                              )}
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                );
-              })()}
-            </>
-          )}
+              </tbody>
+            </table>
+          </div>
+            );
+          })()}
         </>
       )}
-
-      {/* ── METADATA TAB ── */}
-      {tab==="Metadata" && (
-        <div>
-          {/* Header */}
-          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:18, flexWrap:"wrap", gap:10 }}>
-            <div>
-              <div style={{ fontSize:15, fontWeight:800, color:"#1A1A1A" }}>Release Metadata Submissions</div>
-              <div style={{ fontSize:12, color:"#6B7280", marginTop:2 }}>All release types — Teacher Series, Student Originals, External Artists</div>
-            </div>
-            <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
-              <a href={RM_FORM_URL} target="_blank" rel="noreferrer" style={{ display:"inline-flex", alignItems:"center", gap:5, background:"linear-gradient(135deg,#9D174D,#7C1240)", border:"none", borderRadius:8, color:"#fff", padding:"7px 13px", fontSize:12, fontWeight:700, textDecoration:"none" }}>Open Form</a>
-              <a href={RM_SHEET_URL} target="_blank" rel="noreferrer" style={{ display:"inline-flex", alignItems:"center", gap:5, background:"rgba(4,120,87,0.1)", border:"1px solid rgba(4,120,87,0.25)", borderRadius:8, color:"#065F46", padding:"7px 13px", fontSize:12, fontWeight:700, textDecoration:"none" }}>Open Sheet</a>
-              <button onClick={()=>loadRmSubmissions(accessToken)} disabled={rmLoading} style={{ background:"#F9FAFB", border:"1px solid #E5E7EB", borderRadius:8, color:"#374151", padding:"7px 13px", fontSize:12, fontWeight:700, cursor:rmLoading?"wait":"pointer", fontFamily:"inherit" }}>{rmLoading?"Loading…":"⟳ Refresh"}</button>
-            </div>
-          </div>
-
-          {/* Pipeline */}
-          {rmSubmissions.length>0 && (
-            <div style={{ display:"flex", gap:8, overflowX:"auto", paddingBottom:4, marginBottom:18 }}>
-              {RM_STAGES.map(stage=>{ const count=rmSubmissions.filter(s=>(s.rm_status||"Received")===stage).length; const color=RM_STAGE_COLORS[stage]||"#6B7280"; return (<div key={stage} style={{ flex:"0 0 auto", minWidth:110, background:"#fff", border:`1px solid ${color}22`, borderTop:`3px solid ${color}`, borderRadius:10, padding:"11px 12px", textAlign:"center" }}><div style={{ fontFamily:"monospace", fontSize:20, fontWeight:800, color }}>{count}</div><div style={{ fontSize:10, color:"#6B7280", marginTop:3 }}>{stage}</div></div>); })}
-            </div>
-          )}
-
-          {rmError && <div style={{ background:"rgba(220,38,38,0.06)", border:"1px solid rgba(220,38,38,0.2)", borderRadius:10, padding:"14px 18px", marginBottom:16, fontSize:13, color:"#DC2626" }}>{rmError}</div>}
-          {!rmLoading && !rmError && rmSubmissions.length===0 && (
-            <div style={{ background:"rgba(157,23,77,0.04)", border:"1px solid rgba(157,23,77,0.12)", borderRadius:14, padding:"32px 24px", textAlign:"center" }}>
-              <div style={{ fontSize:15, fontWeight:700, color:"#1A1A1A", marginBottom:6 }}>No metadata submissions yet</div>
-              <div style={{ fontSize:13, color:"#6B7280", marginBottom:18 }}>{accessToken?"Click Refresh to pull from the Google Sheet.":"Sign in to Google Drive then click Refresh."}</div>
-              <button onClick={()=>loadRmSubmissions(accessToken)} disabled={rmLoading} style={{ background:"linear-gradient(135deg,#9D174D,#7C1240)", border:"none", borderRadius:8, color:"#fff", padding:"10px 22px", fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>Load Submissions</button>
-            </div>
-          )}
-
-          {/* Search */}
-          {rmSubmissions.length>0 && <div style={{ marginBottom:14 }}><input value={rmQ} onChange={e=>setRmQ(e.target.value)} placeholder="Search by song title, artist, release type…" style={{ width:"100%", background:"#F9FAFB", border:"1px solid #E5E7EB", borderRadius:8, padding:"8px 14px", fontSize:13, fontFamily:"inherit", outline:"none" }} /></div>}
-
-          {/* Submission cards */}
-          <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-            {rmSubmissions.filter(s=>rmQ.trim().length<2||[s.song_title,s.primary_name_1,s.release_type,s.language].some(v=>(v||"").toLowerCase().includes(rmQ.toLowerCase()))).map((s,i)=>{
-              const status=s.rm_status||"Received";
-              const stColor=RM_STAGE_COLORS[status]||"#6B7280";
-              const isExp = rmExpanded===i;
-
-              // All linked songs across flagship + devotional
-              const allSongs = [...(flagship||[]).map(f=>({...f, _type:"Flagship"})), ...(devotional||[]).map(d=>({...d, _type:"Teacher Track"}))];
-              const linkedSong = s._linkedSong || "";
-
-              return (
-                <div key={i} style={{ background:"#fff", border:`1px solid ${isExp?"rgba(157,23,77,0.3)":"#E5E7EB"}`, borderRadius:12, boxShadow:isExp?"0 4px 20px rgba(157,23,77,0.08)":"none" }}>
-                  {/* Card header — always visible */}
-                  <div style={{ padding:"14px 18px", cursor:"pointer" }}
-                    onClick={()=>setRmExpanded(isExp?null:i)}>
-                    <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:12, flexWrap:"wrap" }}>
-                      <div style={{ flex:1, minWidth:200 }}>
-                        <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                          <div style={{ fontSize:14, fontWeight:800, color:"#1A1A1A" }}>{s.song_title||"Untitled"}</div>
-                          {linkedSong && <span style={{ fontSize:10, background:"rgba(4,120,87,0.1)", color:"#047857", border:"1px solid rgba(4,120,87,0.2)", borderRadius:99, padding:"1px 8px", fontWeight:700 }}>🔗 Linked</span>}
-                        </div>
-                        <div style={{ fontSize:12, color:"#6B7280", marginTop:2 }}>{s.primary_name_1||s.primary_legal_1||"—"}</div>
-                        <div style={{ display:"flex", gap:8, marginTop:6, flexWrap:"wrap" }}>
-                          {s.release_type&&<span style={{ fontSize:10, background:"rgba(157,23,77,0.08)", color:"#9D174D", borderRadius:5, padding:"2px 7px", fontWeight:700 }}>{s.release_type}</span>}
-                          {s.language&&<span style={{ fontSize:10, background:"rgba(0,0,0,0.04)", color:"#6B7280", borderRadius:5, padding:"2px 7px" }}>{s.language}</span>}
-                          {s.genre&&<span style={{ fontSize:10, background:"rgba(0,0,0,0.04)", color:"#6B7280", borderRadius:5, padding:"2px 7px" }}>{s.genre}</span>}
-                          <span style={{ fontSize:10, color:"#9CA3AF" }}>{(s.submittedAt||"").slice(0,10)}</span>
-                        </div>
-                      </div>
-                      <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:8 }}>
-                        {canEdit?(
-                          <select value={status} onClick={e=>e.stopPropagation()} onChange={e=>{ e.stopPropagation(); updateRmStatus(s._rowIndex,e.target.value,accessToken); }} style={{ background:`${stColor}12`, border:`1px solid ${stColor}40`, borderRadius:7, color:stColor, padding:"5px 10px", fontSize:11, fontWeight:700, fontFamily:"inherit", outline:"none", cursor:"pointer" }}>
-                            {RM_STAGES.map(st=><option key={st} value={st} style={{ background:"#fff", color:"#1A1A1A" }}>{st}</option>)}
-                          </select>
-                        ):<span style={{ fontSize:11, background:`${stColor}12`, color:stColor, borderRadius:5, padding:"3px 8px", fontWeight:700 }}>{status}</span>}
-                        {s.target_release_month&&<span style={{ fontSize:11, color:"#6B7280" }}>Target: {s.target_release_month}</span>}
-                        <span style={{ fontSize:11, color:"#9CA3AF" }}>{isExp?"▲ Less":"▼ Full details"}</span>
-                      </div>
-                    </div>
-                  </div>
-                  {/* Expand bar */}
-                  <div style={{ background: isExp?"rgba(157,23,77,0.04)":"rgba(0,0,0,0.02)", borderTop:"1px solid rgba(0,0,0,0.05)", padding:"7px 18px", display:"flex", alignItems:"center", justifyContent:"center", gap:6, cursor:"pointer", fontSize:11, color:"#9CA3AF", fontWeight:600 }}
-                    onClick={()=>setRmExpanded(isExp?null:i)}>
-                    {isExp ? "▲ Collapse" : "▼ View full metadata"}
-                  </div>
-
-                  {/* Expanded full metadata */}
-                  {isExp && (
-                    <div style={{ borderTop:"1px solid rgba(0,0,0,0.06)", padding:"20px 18px", background:"rgba(249,250,251,0.7)" }}>
-                      {/* Link to existing song */}
-                      <div style={{ marginBottom:20, padding:"12px 16px", background:"rgba(4,120,87,0.05)", border:"1px solid rgba(4,120,87,0.15)", borderRadius:10 }}>
-                        <div style={{ fontSize:11, fontWeight:700, color:"#047857", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:8 }}>Link to Existing Track</div>
-                        <div style={{ display:"flex", gap:8, alignItems:"center" }}>
-                          <select value={s._linkedSong||""} onChange={e=>{
-                            setRmSubmissions(prev=>prev.map((sub,si)=>si===i?{...sub,_linkedSong:e.target.value}:sub));
-                          }} style={{ flex:1, border:"1px solid #E5E7EB", borderRadius:7, padding:"6px 10px", fontSize:12, fontFamily:"inherit", outline:"none", background:"#fff" }}>
-                            <option value="">— Not linked to any track —</option>
-                            <optgroup label="Flagship Originals">
-                              {(flagship||[]).map((f,fi)=><option key={fi} value={`flagship:${fi}`}>{f.title||"Untitled"} — {f.artist||"—"}</option>)}
-                            </optgroup>
-                            <optgroup label="Teacher Tracks">
-                              {(devotional||[]).map((d,di)=><option key={di} value={`teacher:${di}`}>{d.name||"Untitled"} — {d.religion||d.trackCategory||"—"}</option>)}
-                            </optgroup>
-                          </select>
-                          {s._linkedSong && <span style={{ fontSize:11, color:"#047857", fontWeight:700 }}>✓ Linked</span>}
-                        </div>
-                      </div>
-
-                      {/* Full metadata sections */}
-                      {[
-                        { title:"Track Details", fields:[["Song Title","song_title"],["Release Type","release_type"],["Language","language"],["Genre","genre"],["Sub-Genre","sub_genre"],["Recording Year","recording_year"],["Target Release Month","target_release_month"],["Explicit","explicit"]] },
-                        { title:"Primary Artist", fields:[["Name","primary_name_1"],["Legal Name","primary_legal_1"],["Phone","primary_phone_1"],["Email","primary_email_1"],["Instagram","primary_instagram_1"],["YouTube","primary_youtube_1"],["Spotify","primary_spotify_1"],["IPRS","primary_iprs_1"],["IPRS No.","primary_iprs_num_1"],["Nationality","primary_nationality_1"]] },
-                        { title:"Credits", fields:[["Composer","composer_names"],["Lyricist","lyricist_names"],["Producer","producer_name"],["Recording Studio","recording_studio"],["Mix Engineer","mix_engineer"],["Mastering Engineer","mastering_engineer"]] },
-                        { title:"Rights & Distribution", fields:[["Label","label_name"],["Publisher","publisher"],["Copyright (C)","copyright_c"],["Copyright (P)","copyright_p"],["Ownership %","ownership_pct"],["Territories","territories"],["Distribution Partner","distribution_partner"],["Release Date (Audio)","release_date_audio"],["Release Date (Video)","release_date_video"],["Pre-save Date","presave_date"],["Content ID","content_id"],["YT Channel","yt_channel"],["Spotify Admin","spotify_admin"]] },
-                        { title:"Supporting Files", fields:[["Audio Folder","folder_audio"],["Artwork Folder","folder_artwork"],["Video","folder_video"],["Docs","folder_docs"],["Lyrics","folder_lyrics"],["Artwork Link","artwork_link"]] },
-                        { title:"Marketing", fields:[["Short Description","desc_short"],["Tagline","tagline"],["Press Quote","press_quote"],["Spotify Pitch","spotify_pitch"]] },
-                        { title:"Music Video", fields:[["Director","mv_director"],["DOP","mv_dop"],["Editor","mv_editor"],["Canvas","mv_canvas"],["Thumbnail","mv_thumbnail"]] },
-                      ].map(section=>{
-                        const populated = section.fields.filter(([,key])=>s[key]&&s[key].trim());
-                        if(!populated.length) return null;
-                        return (
-                          <div key={section.title} style={{ marginBottom:16 }}>
-                            <div style={{ fontSize:10, fontWeight:700, color:"#9D174D", textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:8 }}>{section.title}</div>
-                            <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))", gap:8 }}>
-                              {populated.map(([label,key])=>(
-                                <div key={key} style={{ background:"#fff", border:"1px solid #F3F4F6", borderRadius:8, padding:"8px 12px" }}>
-                                  <div style={{ fontSize:10, color:"#9CA3AF", marginBottom:2 }}>{label}</div>
-                                  <div style={{ fontSize:12, color:"#1A1A1A", fontWeight:500, wordBreak:"break-word" }}>
-                                    {(s[key]||"").startsWith("http")
-                                      ? <a href={s[key]} target="_blank" rel="noreferrer" style={{ color:"#1E40AF", textDecoration:"none" }}>Open link ↗</a>
-                                      : s[key]}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        );
-                      })}
-
-                      {/* Long text fields */}
-                      {s.desc_long && <div style={{ marginBottom:16 }}><div style={{ fontSize:10, fontWeight:700, color:"#9D174D", textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:6 }}>Press Note</div><div style={{ fontSize:12, color:"#374151", lineHeight:1.7, background:"#fff", border:"1px solid #F3F4F6", borderRadius:8, padding:"12px 14px" }}>{s.desc_long}</div></div>}
-                      {s.special_notes && <div style={{ marginBottom:16 }}><div style={{ fontSize:10, fontWeight:700, color:"#9D174D", textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:6 }}>Special Notes</div><div style={{ fontSize:12, color:"#374151", lineHeight:1.7, background:"#fff", border:"1px solid #F3F4F6", borderRadius:8, padding:"12px 14px" }}>{s.special_notes}</div></div>}
-
-                      {/* Export button */}
-                      <div style={{ display:"flex", justifyContent:"flex-end", marginTop:8 }}>
-                        <button onClick={()=>{
-                          // Generate beautiful print report
-                          const win = window.open('','_blank');
-                          const song = s.song_title||"Untitled";
-                          const artist = s.primary_name_1||s.primary_legal_1||"—";
-                          const date = new Date().toLocaleDateString("en-IN",{day:"numeric",month:"long",year:"numeric"});
-
-                          const sections = [
-                            { title:"Track Details", fields:[["Song Title","song_title"],["Release Type","release_type"],["Language","language"],["Genre","genre"],["Sub-Genre","sub_genre"],["Recording Year","recording_year"],["Target Release Month","target_release_month"],["Explicit","explicit"],["Is Original","is_original"],["Traditional Source","traditional_source"]] },
-                            { title:"Primary Artist", fields:[["Name","primary_name_1"],["Legal Name","primary_legal_1"],["Phone","primary_phone_1"],["Email","primary_email_1"],["DOB","primary_dob_1"],["Nationality","primary_nationality_1"],["IPRS Member","primary_iprs_1"],["IPRS Number","primary_iprs_num_1"],["Instagram","primary_instagram_1"],["YouTube","primary_youtube_1"],["Spotify","primary_spotify_1"]] },
-                            { title:"Song Credits", fields:[["Composer(s)","composer_names"],["Lyricist(s)","lyricist_names"],["Producer","producer_name"],["Recording Studio","recording_studio"],["Mix Engineer","mix_engineer"],["Mastering Engineer","mastering_engineer"]] },
-                            { title:"Rights & Distribution", fields:[["Label","label_name"],["Publisher","publisher"],["Copyright (C)","copyright_c"],["Phonographic Copyright (P)","copyright_p"],["Ownership %","ownership_pct"],["Performer Rights","performer_rights"],["Publishing Rights","publishing_rights"],["Territories","territories"],["Distribution Partner","distribution_partner"],["Audio Release Date","release_date_audio"],["Video Release Date","release_date_video"],["Pre-save Date","presave_date"],["Content ID","content_id"],["YouTube Channel","yt_channel"],["Spotify for Artists Admin","spotify_admin"]] },
-                            { title:"Supporting Files", fields:[["Audio Folder","folder_audio"],["Artwork Folder","folder_artwork"],["Video Link","folder_video"],["Docs Folder","folder_docs"],["Lyrics Folder","folder_lyrics"],["Artwork Link","artwork_link"]] },
-                            { title:"Marketing Copy", fields:[["Tagline","tagline"],["Press Quote","press_quote"],["Spotify Pitch Text","spotify_pitch"]] },
-                            { title:"Visual Assets", fields:[["Cover Art File Name","art_filename"],["Dimensions","art_dimensions"],["Design Credit","art_design_credit"],["Photography Credit","art_photo_credit"],["Copyright Line on Art","art_copyright_line"]] },
-                            { title:"Music Video", fields:[["Director","mv_director"],["DOP","mv_dop"],["Editor","mv_editor"],["Compositing/VFX","mv_compositing"],["YouTube Thumbnail","mv_thumbnail"],["Spotify Canvas","mv_canvas"],["Copyright Line on Video","mv_copyright_line"]] },
-                          ];
-
-                          // Long text and bio sections
-                          const longSections = [
-                            s.desc_short   ? `<div class="section"><div class="section-title">Short Description (for stores)</div><p class="long-text">${s.desc_short}</p></div>` : "",
-                            s.desc_long    ? `<div class="section"><div class="section-title">Press Note / Long Description</div><p class="long-text">${s.desc_long}</p></div>` : "",
-                            s.song_description ? `<div class="section"><div class="section-title">Song Description</div><p class="long-text">${s.song_description}</p></div>` : "",
-                            s.primary_bio_1 ? `<div class="section"><div class="section-title">Artist Bio</div><p class="long-text">${s.primary_bio_1}</p></div>` : "",
-                            s.special_notes ? `<div class="section"><div class="section-title">Special Notes</div><p class="long-text">${s.special_notes}</p></div>` : "",
-                            s.lyrics       ? `<div class="section"><div class="section-title">Lyrics</div><p class="long-text" style="font-family:serif;line-height:2">${s.lyrics.split("\n").join("<br/>")}</p></div>` : "",
-                          ].join("");
-
-                          const sectionHTML = sections.map(sec=>{
-                            const rows = sec.fields.filter(([,k])=>s[k]&&s[k].trim());
-                            if(!rows.length) return "";
-                            return `<div class="section"><div class="section-title">${sec.title}</div><table>${rows.map(([l,k])=>`<tr><td class="label">${l}</td><td class="value">${(s[k]||"").startsWith("http")?`<a href="${s[k]}">${s[k]}</a>`:s[k]}</td></tr>`).join("")}</table></div>`;
-                          }).join("");
-
-                          // longFields now merged into longSections above
-
-                          win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Release Metadata — ${song}</title>
-<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-<style>
-  * { box-sizing:border-box; margin:0; padding:0; }
-  body { font-family:'DM Sans',sans-serif; color:#1a1410; background:#fff; font-size:11pt; }
-  .page { max-width:210mm; margin:0 auto; padding:20mm 18mm; }
-  .header { display:flex; align-items:center; justify-content:space-between; padding-bottom:16px; border-bottom:2px solid #000; margin-bottom:24px; }
-  .header-left h1 { font-family:'DM Serif Display',serif; font-size:22pt; font-weight:400; line-height:1.2; }
-  .header-left p { font-size:11pt; color:#6B7280; margin-top:4px; }
-  .header-right { text-align:right; font-size:9pt; color:#6B7280; }
-  .header-right .label-logo { font-family:'DM Serif Display',serif; font-size:13pt; color:#9D174D; font-weight:400; }
-  .meta-strip { display:flex; gap:24px; background:#f5f0eb; border-radius:8px; padding:12px 16px; margin-bottom:24px; flex-wrap:wrap; }
-  .meta-item .k { font-size:8pt; font-weight:700; color:#9CA3AF; text-transform:uppercase; letter-spacing:0.08em; }
-  .meta-item .v { font-size:10pt; font-weight:600; color:#1a1410; margin-top:2px; }
-  .status-pill { display:inline-block; background:#9D174D; color:#fff; font-size:9pt; font-weight:700; border-radius:99px; padding:2px 12px; }
-  .section { margin-bottom:20px; page-break-inside:avoid; }
-  .section-title { font-size:9pt; font-weight:700; color:#9D174D; text-transform:uppercase; letter-spacing:0.1em; border-bottom:1px solid #f0e8e0; padding-bottom:5px; margin-bottom:10px; }
-  table { width:100%; border-collapse:collapse; }
-  tr:nth-child(even) td { background:#faf8f5; }
-  td { padding:5px 8px; vertical-align:top; }
-  .label { font-size:9pt; color:#6B7280; width:38%; font-weight:500; }
-  .value { font-size:9pt; color:#1a1410; font-weight:500; }
-  .value a { color:#1E40AF; }
-  .long-text { font-size:10pt; color:#374151; line-height:1.7; padding:10px 12px; background:#faf8f5; border-radius:6px; }
-  .footer { margin-top:32px; padding-top:12px; border-top:1px solid #e5e7eb; display:flex; justify-content:space-between; font-size:8pt; color:#9CA3AF; }
-  @media print { body { print-color-adjust:exact; -webkit-print-color-adjust:exact; } }
-</style></head><body><div class="page">
-  <div class="header">
-    <div class="header-left">
-      <h1>${song}</h1>
-      <p>${artist}</p>
-    </div>
-    <div class="header-right">
-      <div class="label-logo">Artium Originals</div>
-      <div style="margin-top:4px">Release Metadata</div>
-      <div style="margin-top:2px">${date}</div>
-      <div style="margin-top:6px"><span class="status-pill">${status}</span></div>
-    </div>
-  </div>
-  <div class="meta-strip">
-    ${[["Release Type",s.release_type],["Language",s.language],["Genre",s.genre],["Target Release",s.target_release_month],["Submitted",(s.submittedAt||"").slice(0,10)]].filter(([,v])=>v).map(([k,v])=>`<div class="meta-item"><div class="k">${k}</div><div class="v">${v}</div></div>`).join("")}
-  </div>
-  ${sectionHTML}${longSections}
-  <div class="footer"><span>Artium Academy — Confidential</span><span>Generated ${date}</span></div>
-</div><script>window.onload=()=>{ window.print(); }<\/script></body></html>`);
-                          win.document.close();
-                        }}
-                        style={{ background:"linear-gradient(135deg,#1A1A1A,#374151)", border:"none", borderRadius:8, color:"#fff", padding:"8px 18px", fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>
-                        Export / Print PDF
-                      </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
 
       {/* Flagship form modal */}
       {modal?.type==="flagship" && (
@@ -4781,7 +3550,7 @@ function OriginalsSection({ data, canEdit, onUpdate, period, ytApiKey, airtableC
         </Modal>
       )}
       {modal?.type==="devotional" && (
-        <Modal title={modal.idx!==null?"Edit Teacher Track":"Add Teacher Track"} onClose={close} wide>
+        <Modal title={modal.idx!==null?"Edit Teacher Track":"Add Devotional Track"} onClose={close} wide>
           <DevotionalForm initial={modal.form} onSave={saveDevotional} onCancel={close} />
         </Modal>
       )}
@@ -5312,25 +4081,16 @@ function DevotionalCSVImporter({ existing, onClose, onImport }) {
 function DevotionalForm({ initial, onSave, onCancel }) {
   const [f, setF] = useState({...initial});
   const u = (k,v) => setF(p=>({...p,[k]:v}));
-  const isDevotional = (f.trackCategory||f.religion||f.type) && (f.trackCategory==="Devotional/Spiritual" || (!f.trackCategory && (f.religion||f.type)));
   return (
     <div>
       <Divider label="Teacher Info" />
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:12 }}>
         <Field label="Teacher Name" value={f.name} onChange={v=>u("name",v)} />
         <Field label="Phone" value={f.phone} onChange={v=>u("phone",v)} />
-        <Field label="Track Category" value={f.trackCategory||""} onChange={v=>u("trackCategory",v)} options={["","Devotional/Spiritual","General Original"]} />
-        <Field label="Language" value={f.language||""} onChange={v=>u("language",v)} options={["","Hindi","Sanskrit","Tamil","Telugu","Kannada","Malayalam","Bengali","Marathi","Gujarati","Punjabi","Urdu","English","Other"]} />
-        <Field label="Genre" value={f.genre||f.type||""} onChange={v=>{ u("genre",v); u("type",v); }}
-          options={f.trackCategory==="General Original"
-            ? ["","Hindustani Classical","Carnatic Classical","Folk","Fusion","Pop","Sufi","Film / Filmi","Jazz","Western","Other"]
-            : ["","Bhajan","Aarti","Stotra","Shloka","Shabad","Kirtan","Hymn","Other"]} />
-        {(isDevotional || !f.trackCategory) && (
-          <Field label="Religion / Tradition" value={f.religion||""} onChange={v=>u("religion",v)} />
-        )}
-        {(isDevotional || !f.trackCategory) && (
-          <Field label="Deity / Theme" value={f.deity||""} onChange={v=>u("deity",v)} />
-        )}
+        <Field label="Religion" value={f.religion} onChange={v=>u("religion",v)} />
+        <Field label="Deity / Theme" value={f.deity} onChange={v=>u("deity",v)} />
+        <Field label="Language" value={f.language||""} onChange={v=>u("language",v)} options={["","Hindi","Sanskrit","Tamil","Telugu","Kannada","Malayalam","Bengali","Marathi","Gujarati","Punjabi","English","Other"]} />
+        <Field label="Song Type" value={f.type} onChange={v=>u("type",v)} options={["","Bhajan","Arti","Stotra","Shloka","Shabad","Hymn","Other"]} />
       </div>
       <Divider label="Pipeline Status" />
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:12 }}>
@@ -7460,14 +6220,14 @@ function ChatSection({ data, anthropicKey, onUpdate }) {
 2. ACTION MODE: When the user asks you to make a change, return a JSON action block.
 
 IMPORTANT: When making changes, ALWAYS respond with a JSON block in this exact format:
-```action
+\`\`\`action
 {
   "description": "Human-readable summary of what you're doing",
   "type": "update_student" | "add_student" | "update_originals" | "update_devotional" | "add_devotional" | "update_unmute_perf",
   "data": { ... the specific fields to update/add ... },
   "target": { ... how to find the item, e.g. "name": "Vinisha" ... }
 }
-```
+\`\`\`
 
 Supported action types:
 - update_student: Update any student field. target: {name: "..."}, data: {contract: true, stream: "...", teacher: "...", status: "...", city: "...", phone: "...", notes: "..."}
@@ -13027,28 +11787,14 @@ function isRsvpVerified(rsvpName, students) {
   // Check alias map first
   const aliases = (() => { try { return JSON.parse(localStorage.getItem("artium-name-aliases")||"{}"); } catch { return {}; } })();
   if (aliases[rLower]) return true;
-  const rParts = rLower.split(/\s+/);
-  const rFirst = rParts[0] || "";
-  const rLast = rParts.slice(1).join(" ");
+  const rFirst = rLower.split(" ")[0];
   return students.some(s => {
     const sName = (s.name||"").toLowerCase().trim();
-    const sParts = sName.split(/\s+/);
-    const sFirst = sParts[0] || "";
-    const sLast = sParts.slice(1).join(" ");
-    // Exact full name match
-    if (sName === rLower) return true;
-    // Full name contains — only when both have 2+ parts
-    if (rParts.length >= 2 && sParts.length >= 2) {
-      if (sName.includes(rLower) || rLower.includes(sName)) return true;
-    }
-    // First + last both present and match
-    if (rFirst && rLast && sFirst && sLast) {
-      if ((rFirst === sFirst && rLast === sLast) ||
-          (rFirst === sLast && rLast === sFirst)) return true;
-    }
-    // First name only — require 7+ chars to avoid false positives
-    if (rFirst && sFirst && rFirst === sFirst && rFirst.length >= 7 && !rLast && !sLast) return true;
-    return false;
+    const sFirst = sName.split(" ")[0];
+    return sName === rLower ||
+      sName.includes(rLower) ||
+      rLower.includes(sName) ||
+      (rFirst && sFirst && rFirst === sFirst && rFirst.length > 2);
   });
 }
 
@@ -17646,8 +16392,8 @@ export default function App() {
           {section==="calendar"  && <ContentCalendar data={data} onUpdate={v=>setData(v)} />}
           {section==="chat"      && <ChatSection data={data} anthropicKey={anthropicKey} onUpdate={nd=>{ const merged={...data,...nd}; setData(merged); try{localStorage.setItem("artium-cms-v4",JSON.stringify(merged));}catch{} }} />}
           {section==="atdp"      && <ErrorBoundary><ATDPSection data={data.atdp} canEdit={canEdit} canMarkAtt={canMarkAtt} canSyncRsvp={canSyncRsvp} onUpdate={v=>updateSection("atdp",v)} period={period} anthropicKey={anthropicKey} isMobile={isMobile} fullData={data} onMarkAttendance={()=>setShowMobileAtt(true)} /></ErrorBoundary>}
-          {section==="unmute"    && <UnmuteSection data={data.unmute} canEdit={canEditUnmute} onUpdate={v=>updateSection("unmute",v)} period={period} ytApiKey={ytApiKey} onCloudSave={handleDriveSave} onCloudLoad={handleDriveLoad} gdriveStatus={gdriveStatus} accessToken={accessToken} onSignIn={()=>signIn(async (token)=>{ await handleDriveLoadWithToken(token); })} />}
-          {section==="originals" && <ErrorBoundary><OriginalsSection data={data.originals} canEdit={canEditOriginals} onUpdate={v=>updateSection("originals",v)} period={period} ytApiKey={ytApiKey} airtableConfig={airtableConfig} anthropicKey={anthropicKey} accessToken={accessToken} /></ErrorBoundary>}
+          {section==="unmute"    && <UnmuteSection data={data.unmute} canEdit={canEditUnmute} onUpdate={v=>updateSection("unmute",v)} period={period} ytApiKey={ytApiKey} />}
+          {section==="originals" && <ErrorBoundary><OriginalsSection data={data.originals} canEdit={canEditOriginals} onUpdate={v=>updateSection("originals",v)} period={period} ytApiKey={ytApiKey} airtableConfig={airtableConfig} anthropicKey={anthropicKey} /></ErrorBoundary>}
           {section==="analysis"  && <AnalysisSection data={data} period={period} anthropicKey={anthropicKey} unmuteCadence={unmuteCadence} />}
           {section==="deadlines" && <DeadlinesSection canEdit={canEdit} anthropicKey={anthropicKey} />}
           {section==="pms"       && <PMSSection data={data} anthropicKey={anthropicKey} />}

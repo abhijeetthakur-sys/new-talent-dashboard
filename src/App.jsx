@@ -1792,14 +1792,14 @@ function UnmutePlanningSection({ data, canEdit, onUpdate, atdpStudents, onCloudS
     "Approved":"#047857","Revision Requested":"#7C3AED","Overdue":"#DC2626"
   };
   const DEFAULT_DELIVERABLES = [
-    // Pavan / Agency — Video Production
-    { id:"d1", item:"Raw footage handover", deadline:"", status:"Pending", driveLink:"", notes:"", assignee:"Pavan" },
-    { id:"d2", item:"Rough cut (first edit)", deadline:"", status:"Pending", driveLink:"", notes:"", assignee:"Pavan" },
-    { id:"d3", item:"Final edit (colour graded)", deadline:"", status:"Pending", driveLink:"", notes:"", assignee:"Pavan" },
-    { id:"d4", item:"Final MP4 (YouTube ready)", deadline:"", status:"Pending", driveLink:"", notes:"", assignee:"Pavan" },
-    { id:"d5", item:"Short reels / clips (3–5)", deadline:"", status:"Pending", driveLink:"", notes:"", assignee:"Pavan" },
-    { id:"d6", item:"Thumbnail options (3+)", deadline:"", status:"Pending", driveLink:"", notes:"", assignee:"Pavan" },
-    { id:"d7", item:"Behind the scenes content", deadline:"", status:"Pending", driveLink:"", notes:"", assignee:"Pavan" },
+    // Video Production Agency
+    { id:"d1", item:"Raw footage handover", deadline:"", status:"Pending", driveLink:"", notes:"", assignee:"Video" },
+    { id:"d2", item:"Rough cut (first edit)", deadline:"", status:"Pending", driveLink:"", notes:"", assignee:"Video" },
+    { id:"d3", item:"Final edit (colour graded)", deadline:"", status:"Pending", driveLink:"", notes:"", assignee:"Video" },
+    { id:"d4", item:"Final MP4 (YouTube ready)", deadline:"", status:"Pending", driveLink:"", notes:"", assignee:"Video" },
+    { id:"d5", item:"Short reels / clips (3–5)", deadline:"", status:"Pending", driveLink:"", notes:"", assignee:"Video" },
+    { id:"d6", item:"Thumbnail options (3+)", deadline:"", status:"Pending", driveLink:"", notes:"", assignee:"Video" },
+    { id:"d7", item:"Behind the scenes content", deadline:"", status:"Pending", driveLink:"", notes:"", assignee:"Video" },
     // Akshay — Music Production
     { id:"d8",  item:"Scratch v1 (piano/click) — all songs", deadline:"", status:"Pending", driveLink:"", notes:"", assignee:"Akshay" },
     { id:"d9",  item:"Reference vocals on scratches", deadline:"", status:"Pending", driveLink:"", notes:"", assignee:"Akshay" },
@@ -2199,11 +2199,12 @@ function UnmutePlanningSection({ data, canEdit, onUpdate, atdpStudents, onCloudS
               {(()=>{
                 const vendors = getVendors();
                 const total = vendors.reduce((a,v)=>a+(parseInt((v.rate||"0").replace(/[^0-9]/g,""))||0),0);
-                const paid = vendors.filter(v=>v.paymentStatus==="Paid in full").reduce((a,v)=>a+(parseInt((v.rate||"0").replace(/[^0-9]/g,""))||0),0);
+                const advancePaid = vendors.reduce((a,v)=>a+(parseInt((v.advance||"0").replace(/[^0-9]/g,""))||0),0);
+                const balance = total - advancePaid;
                 if(vendors.length === 0) return null;
                 return (
                   <div style={{ display:"flex", gap:10, marginBottom:16, flexWrap:"wrap" }}>
-                    {[["Total Vendors",vendors.length,"#1A1A1A"],["Confirmed",vendors.filter(v=>v.paymentStatus!=="Not started").length,"#047857"],["Budget Est.",`₹${total.toLocaleString("en-IN")}`,"#B45309"],["Paid",`₹${paid.toLocaleString("en-IN")}`,paid>=total?"#047857":"#DC2626"]].map(([l,v,c])=>(
+                    {[["Total Vendors",vendors.length,"#1A1A1A"],["Budget Est.",`₹${total.toLocaleString("en-IN")}`,"#B45309"],["Advance Paid",`₹${advancePaid.toLocaleString("en-IN")}`,"#1E40AF"],["Balance Due",`₹${balance.toLocaleString("en-IN")}`,balance<=0?"#047857":"#DC2626"]].map(([l,v,c])=>(
                       <div key={l} style={{ background:"rgba(0,0,0,0.02)", border:"1px solid rgba(0,0,0,0.05)", borderRadius:10, padding:"10px 14px", textAlign:"center" }}>
                         <div style={{ fontSize:16, fontWeight:800, color:c, fontFamily:"monospace" }}>{v}</div>
                         <div style={{ fontSize:10, color:"#6B7280", marginTop:2 }}>{l}</div>
@@ -2255,14 +2256,25 @@ function UnmutePlanningSection({ data, canEdit, onUpdate, atdpStudents, onCloudS
                           ) : <div style={{ fontSize:12, color:"#374151" }}>{v.service||"—"}</div>}
                         </div>
                         <div>
-                          <div style={{ fontSize:9, fontWeight:700, color:"#6B7280", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:3 }}>Rate (₹)</div>
+                          <div style={{ fontSize:9, fontWeight:700, color:"#6B7280", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:3 }}>Total Rate (₹)</div>
                           {canEdit ? (
                             <input value={v.rate} onChange={e=>saveVendor(i,{rate:e.target.value})} placeholder="e.g. 22000"
                               style={{ width:"100%", border:"1px solid #E5E7EB", borderRadius:6, padding:"5px 8px", fontSize:12, fontFamily:"inherit", outline:"none" }} />
-                          ) : <div style={{ fontSize:12, fontWeight:700, color:"#374151" }}>{v.rate ? `₹${v.rate}` : "—"}</div>}
+                          ) : <div style={{ fontSize:12, fontWeight:700, color:"#374151" }}>{v.rate ? `₹${parseInt(v.rate||0).toLocaleString("en-IN")}` : "—"}</div>}
                         </div>
                         <div>
-                          <div style={{ fontSize:9, fontWeight:700, color:"#6B7280", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:3 }}>Payment</div>
+                          <div style={{ fontSize:9, fontWeight:700, color:"#6B7280", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:3 }}>Advance Paid (₹)</div>
+                          {canEdit ? (
+                            <input value={v.advance||""} onChange={e=>saveVendor(i,{advance:e.target.value})} placeholder="e.g. 5000"
+                              style={{ width:"100%", border:"1px solid #E5E7EB", borderRadius:6, padding:"5px 8px", fontSize:12, fontFamily:"inherit", outline:"none" }} />
+                          ) : <div style={{ fontSize:12, color:"#B45309", fontWeight:700 }}>{v.advance ? `₹${parseInt(v.advance||0).toLocaleString("en-IN")}` : "—"}</div>}
+                        </div>
+                        <div>
+                          <div style={{ fontSize:9, fontWeight:700, color:"#6B7280", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:3 }}>Balance Due (₹)</div>
+                          {(()=>{ const bal = parseInt(v.rate||0) - parseInt(v.advance||0); return <div style={{ fontSize:12, fontWeight:800, color: bal<=0?"#047857":"#DC2626" }}>{isNaN(bal)||(!v.rate&&!v.advance)?"—":`₹${bal.toLocaleString("en-IN")}`}</div>; })()}
+                        </div>
+                        <div>
+                          <div style={{ fontSize:9, fontWeight:700, color:"#6B7280", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:3 }}>Payment Status</div>
                           {canEdit ? (
                             <select value={v.paymentStatus} onChange={e=>saveVendor(i,{paymentStatus:e.target.value})}
                               style={{ width:"100%", border:`1px solid ${pyColor}40`, borderRadius:6, padding:"5px 8px", fontSize:12, fontFamily:"inherit", outline:"none", color:pyColor, fontWeight:700, background:`${pyColor}08` }}>
@@ -2271,7 +2283,16 @@ function UnmutePlanningSection({ data, canEdit, onUpdate, atdpStudents, onCloudS
                           ) : <span style={{ fontSize:11, fontWeight:700, color:pyColor }}>{v.paymentStatus}</span>}
                         </div>
                       </div>
-                      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr auto", gap:10, alignItems:"center" }}>
+                      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr auto", gap:10, alignItems:"start" }}>
+                        {v.role==="Other" && (
+                          <div style={{ gridColumn:"1/-1" }}>
+                            <div style={{ fontSize:9, fontWeight:700, color:"#6B7280", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:3 }}>Role Description</div>
+                            {canEdit ? (
+                              <input value={v.roleDesc||""} onChange={e=>saveVendor(i,{roleDesc:e.target.value})} placeholder="Describe the role e.g. Drone operator, Makeup artist…"
+                                style={{ width:"100%", border:"1px solid #E5E7EB", borderRadius:6, padding:"5px 8px", fontSize:12, fontFamily:"inherit", outline:"none" }} />
+                            ) : <div style={{ fontSize:12, color:"#374151" }}>{v.roleDesc||"—"}</div>}
+                          </div>
+                        )}
                         <div>
                           <div style={{ fontSize:9, fontWeight:700, color:"#6B7280", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:3 }}>Onsite POC</div>
                           {canEdit ? (
@@ -2280,13 +2301,20 @@ function UnmutePlanningSection({ data, canEdit, onUpdate, atdpStudents, onCloudS
                           ) : <div style={{ fontSize:12, color:"#374151" }}>{v.oncitePOC||"—"}</div>}
                         </div>
                         <div>
+                          <div style={{ fontSize:9, fontWeight:700, color:"#6B7280", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:3 }}>Report Time</div>
+                          {canEdit ? (
+                            <input value={v.reportTime||""} onChange={e=>saveVendor(i,{reportTime:e.target.value})} placeholder="e.g. 02:30 PM"
+                              style={{ width:"100%", border:"1px solid #E5E7EB", borderRadius:6, padding:"5px 8px", fontSize:12, fontFamily:"inherit", outline:"none" }} />
+                          ) : <div style={{ fontSize:12, color:"#374151" }}>{v.reportTime||"—"}</div>}
+                        </div>
+                        <div>
                           <div style={{ fontSize:9, fontWeight:700, color:"#6B7280", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:3 }}>Notes</div>
                           {canEdit ? (
                             <input value={v.notes} onChange={e=>saveVendor(i,{notes:e.target.value})} placeholder="Any notes"
                               style={{ width:"100%", border:"1px solid #E5E7EB", borderRadius:6, padding:"5px 8px", fontSize:12, fontFamily:"inherit", outline:"none" }} />
                           ) : <div style={{ fontSize:12, color:"#9CA3AF" }}>{v.notes||"—"}</div>}
                         </div>
-                        {canEdit && <button onClick={()=>deleteVendor(i)} style={{ background:"none", border:"none", color:"#DC2626", cursor:"pointer", fontSize:13, padding:"4px 6px", opacity:0.6 }}>🗑</button>}
+                        {canEdit && <button onClick={()=>deleteVendor(i)} style={{ background:"none", border:"none", color:"#DC2626", cursor:"pointer", fontSize:13, padding:"4px 6px", opacity:0.6, marginTop:18 }}>🗑</button>}
                       </div>
                     </div>
                   );
@@ -2337,7 +2365,7 @@ function UnmutePlanningSection({ data, canEdit, onUpdate, atdpStudents, onCloudS
               })()}
 
               {/* Deliverables grouped by assignee */}
-              {["Pavan","Akshay","Other"].map(assignee => {
+              {["Video","Akshay","Other"].map(assignee => {
                 const items = getDeliverables().map((d,i)=>({...d,_idx:i})).filter(d=>(d.assignee||"Other")===assignee);
                 if(items.length===0) return null;
                 const done = items.filter(d=>d.status==="Approved").length;
@@ -3807,7 +3835,7 @@ function OriginalsSection({ data, canEdit, onUpdate, period, ytApiKey, airtableC
           <Btn onClick={()=>open(tab==="Flagship"?"flagship":"devotional",
             tab==="Flagship"
               ? {title:"",artist:"",artistType:"student",genre:"Hindi Pop",composer:"",lyricist:"",studio:"",producer:"Akshay",status:"planned",releaseDate:"",distributor:"GMJ",distributorLink:"",stages:{composition:"pending",recording:"pending",production:"pending",mixMaster:"pending",metadata:"pending",distribution:"pending"},notes:"",analytics:null}
-              : {name:"",phone:"",religion:"",deity:"",type:"",genre:"",trackCategory:"",language:"",scratchStatus:"not yet",scratchDate:"",finalStatus:"not yet",finalDate:"",prodStatus:"pending",releaseDate:"",finalTrackLink:"",ytLink:"",dspLink:"",albumArtStatus:"",notes:""}
+              : {name:"",phone:"",religion:"",deity:"",type:"",genre:"",trackCategory:"",language:"",songTitle:"",scratchStatus:"not yet",scratchDate:"",finalStatus:"not yet",finalDate:"",prodStatus:"pending",releaseDate:"",finalTrackLink:"",ytLink:"",dspLink:"",albumArtStatus:"",notes:""}
           )}>+ Add {tab==="Flagship"?"Original":"Teacher Track"}</Btn>
         )}
       />
@@ -4393,7 +4421,7 @@ function OriginalsSection({ data, canEdit, onUpdate, period, ytApiKey, airtableC
               {/* Add teacher track button */}
               {canEdit && (
                 <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:10 }}>
-                  <Btn onClick={()=>open("devotional",{name:"",phone:"",religion:"",deity:"",type:"",genre:"",trackCategory:"",language:"",scratchStatus:"not yet",scratchDate:"",finalStatus:"not yet",finalDate:"",prodStatus:"pending",releaseDate:"",finalTrackLink:"",ytLink:"",dspLink:"",albumArtStatus:"",notes:""})}>
+                  <Btn onClick={()=>open("devotional",{name:"",phone:"",religion:"",deity:"",type:"",genre:"",trackCategory:"",language:"",songTitle:"",scratchStatus:"not yet",scratchDate:"",finalStatus:"not yet",finalDate:"",prodStatus:"pending",releaseDate:"",finalTrackLink:"",ytLink:"",dspLink:"",albumArtStatus:"",notes:""})}>
                     + Add Teacher Track
                   </Btn>
                 </div>
@@ -4429,7 +4457,10 @@ function OriginalsSection({ data, canEdit, onUpdate, period, ytApiKey, airtableC
                           </div>
                           <div style={{ padding:"12px 14px", flex:1, display:"flex", flexDirection:"column", gap:5 }}>
                             <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:6 }}>
-                              <div style={{ fontSize:13, fontWeight:700, color:"#1A1A1A", flex:1, overflow:"hidden", display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical" }}>{d.name}</div>
+                              <div>
+                                <div style={{ fontSize:13, fontWeight:700, color:"#1A1A1A", flex:1, overflow:"hidden", display:"-webkit-box", WebkitLineClamp:1, WebkitBoxOrient:"vertical" }}>{d.name}</div>
+                                {d.songTitle && <div style={{ fontSize:11, color:"#9D174D", fontWeight:600, marginTop:1 }}>🎵 {d.songTitle}</div>}
+                              </div>
                               <Chip status={d.prodStatus==="done"?"done":d.prodStatus==="in progress"?"in progress":"pending"} label={d.prodStatus==="done"?"Released":d.prodStatus==="in progress"?"In Prod":"Pending"} />
                             </div>
                             <div style={{ fontSize:11, color:"#6B7280" }}>{d.trackCategory||d.religion||"—"}{d.deity?` · ${d.deity}`:""}</div>
@@ -4472,6 +4503,7 @@ function OriginalsSection({ data, canEdit, onUpdate, period, ytApiKey, airtableC
                                   <PhotoUploader photoKey={`devotional-${d.id}`} size={28} shape="circle" />
                                   <div>
                                     <div style={{ fontWeight:700, color:"#1A1A1A", whiteSpace:"nowrap" }}>{d.name}</div>
+                                    {d.songTitle&&<div style={{ fontSize:10, color:"#9D174D", fontWeight:600 }}>🎵 {d.songTitle}</div>}
                                     {d.deity&&<div style={{ fontSize:10, color:"#6B7280" }}>{d.deity}</div>}
                                   </div>
                                 </div>
@@ -5161,6 +5193,7 @@ function DevotionalForm({ initial, onSave, onCancel }) {
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:12 }}>
         <Field label="Teacher Name" value={f.name} onChange={v=>u("name",v)} />
         <Field label="Phone" value={f.phone} onChange={v=>u("phone",v)} />
+        <Field label="Song Title" value={f.songTitle||""} onChange={v=>u("songTitle",v)} placeholder="e.g. Suno Dayal" />
         <Field label="Track Category" value={f.trackCategory||""} onChange={v=>u("trackCategory",v)} options={["","Devotional/Spiritual","General Original"]} />
         <Field label="Language" value={f.language||""} onChange={v=>u("language",v)} options={["","Hindi","Sanskrit","Tamil","Telugu","Kannada","Malayalam","Bengali","Marathi","Gujarati","Punjabi","Urdu","English","Other"]} />
         <Field label="Genre" value={f.genre||f.type||""} onChange={v=>{ u("genre",v); u("type",v); }}

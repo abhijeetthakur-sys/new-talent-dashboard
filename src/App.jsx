@@ -2271,7 +2271,7 @@ function UnmutePlanningSection({ data, canEdit, onUpdate, atdpStudents, onCloudS
                         </div>
                         <div>
                           <div style={{ fontSize:9, fontWeight:700, color:"#6B7280", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:3 }}>Balance Due (₹)</div>
-                          {(()=>{ const bal = parseInt(v.rate||0) - parseInt(v.advance||0); return <div style={{ fontSize:12, fontWeight:800, color: bal<=0?"#047857":"#DC2626" }}>{isNaN(bal)||(!v.rate&&!v.advance)?"—":`₹${bal.toLocaleString("en-IN")}`}</div>; })()}
+                          {(()=>{ const r=parseInt((v.rate||"0").replace(/[^0-9]/g,""))||0; const a=parseInt((v.advance||"0").replace(/[^0-9]/g,""))||0; const bal=r-a; return <div style={{ fontSize:12, fontWeight:800, color: bal<=0&&r>0?"#047857":"#DC2626" }}>{!r&&!a?"—":`₹${bal.toLocaleString("en-IN")}`}</div>; })()}
                         </div>
                         <div>
                           <div style={{ fontSize:9, fontWeight:700, color:"#6B7280", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:3 }}>Payment Status</div>

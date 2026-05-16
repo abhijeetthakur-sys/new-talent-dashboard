@@ -464,25 +464,25 @@ function addCredit(defaultName, defaultRole, defaultNotes) {
     roleOptions += '<option value="' + r + '"' + (r === defaultRole ? ' selected' : '') + '>' + r + '</option>';
   });
   const otherDisplay = defaultRole === 'Other' ? 'block' : 'none';
-  block.innerHTML = [
-    '<button type="button" class="remove-btn" onclick="removeBlock('creditBlock' + idx + '')">×</button>',
-    '<div class="grid-3">',
-      '<div class="field"><label>Name</label>',
-        '<input type="text" name="credit_name_' + idx + '" placeholder="Full name" value="' + defaultName + '" />',
-      '</div>',
-      '<div class="field"><label>Role</label>',
-        '<select name="credit_role_' + idx + '" onchange="checkOtherRole(this,'creditOther' + idx + '')">',
-          roleOptions,
-        '</select>',
-        '<input type="text" id="creditOther' + idx + '" name="credit_role_other_' + idx + '"',
-          'placeholder="Describe role..." ',
-          'style="display:' + otherDisplay + ';margin-top:6px;width:100%;padding:8px 12px;border:1.5px solid var(--border);border-radius:var(--radius);font-family:inherit;font-size:14px;outline:none" />',
-      '</div>',
-      '<div class="field"><label>Notes</label>',
-        '<input type="text" name="credit_notes_' + idx + '" placeholder="Any specific notes" value="' + defaultNotes + '" />',
-      '</div>',
-    '</div>'
-  ].join('');
+  const blockId = 'creditBlock' + idx;
+  const otherId = 'creditOther' + idx;
+  block.innerHTML =
+    '<button type="button" class="remove-btn" onclick="removeBlock(\'' + blockId + '\')">×</button>' +
+    '<div class="grid-3">' +
+      '<div class="field"><label>Name</label>' +
+        '<input type="text" name="credit_name_' + idx + '" placeholder="Full name" value="' + defaultName + '" />' +
+      '</div>' +
+      '<div class="field"><label>Role</label>' +
+        '<select name="credit_role_' + idx + '" onchange="checkOtherRole(this,\'' + otherId + '\')">'+
+          roleOptions +
+        '</select>' +
+        '<input type="text" id="' + otherId + '" name="credit_role_other_' + idx + '" placeholder="Describe role..." ' +
+          'style="display:' + otherDisplay + ';margin-top:6px;width:100%;padding:8px 12px;border:1.5px solid #ddd5c8;border-radius:10px;font-family:inherit;font-size:14px;outline:none" />' +
+      '</div>' +
+      '<div class="field"><label>Notes</label>' +
+        '<input type="text" name="credit_notes_' + idx + '" placeholder="Any specific notes" value="' + defaultNotes + '" />' +
+      '</div>' +
+    '</div>';
   container.appendChild(block);
 }
 

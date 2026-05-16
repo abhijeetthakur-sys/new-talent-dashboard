@@ -406,7 +406,8 @@ let adminUnlocked = false;
 
 // ── Init ─────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-  addArtist('primary'); // start with one primary artist row
+  addArtist('primary');
+  loadDefaultCredits();
   loadCustomFields();
 });
 
@@ -447,29 +448,58 @@ function addArtist(type) {
 }
 
 // ── Credits ──────────────────────────────────────────────────────────────────
-function addCredit() {
+const CREDIT_ROLES = ["Vocalist","Guitarist","Bassist","Drummer","Keyboardist","Violinist","Tabla","Flute","Sitar","Harmonium","Percussion","Arranger","Backing Vocals","Scratch Vocalist","Session Musician","Social Media & Content","Artwork / Design","Video Production Coordination","Vocal Practice Support","BTS Videographer","BTS Editor","Other"];
+
+function addCredit(defaultName, defaultRole, defaultNotes) {
+  defaultName = defaultName || '';
+  defaultRole = defaultRole || '';
+  defaultNotes = defaultNotes || '';
   const idx = ++creditCount;
   const container = document.getElementById('additionalCredits');
   const block = document.createElement('div');
   block.className = 'repeat-block';
-  block.id = `creditBlock${idx}`;
-  block.innerHTML = `
-    <button type="button" class="remove-btn" onclick="removeBlock('creditBlock${idx}')">×</button>
-    <div class="grid-3">
-      <div class="field"><label>Name</label><input type="text" name="credit_name_${idx}" placeholder="Full name" /></div>
-      <div class="field"><label>Role</label>
-        <select name="credit_role_${idx}">
-          <option value="">Select role…</option>
-          <option>Vocalist</option><option>Guitarist</option><option>Bassist</option><option>Drummer</option>
-          <option>Keyboardist</option><option>Violinist</option><option>Tabla</option><option>Flute</option>
-          <option>Sitar</option><option>Harmonium</option><option>Percussion</option>
-          <option>Arranger</option><option>Backing Vocals</option><option>Session Musician</option><option>Other</option>
-        </select>
-      </div>
-      <div class="field"><label>Notes</label><input type="text" name="credit_notes_${idx}" placeholder="Any specific notes" /></div>
-    </div>
-  `;
+  block.id = 'creditBlock' + idx;
+  let roleOptions = '<option value="">Select role...</option>';
+  CREDIT_ROLES.forEach(function(r) {
+    roleOptions += '<option value="' + r + '"' + (r === defaultRole ? ' selected' : '') + '>' + r + '</option>';
+  });
+  const otherDisplay = defaultRole === 'Other' ? 'block' : 'none';
+  block.innerHTML = [
+    '<button type="button" class="remove-btn" onclick="removeBlock('creditBlock' + idx + '')">×</button>',
+    '<div class="grid-3">',
+      '<div class="field"><label>Name</label>',
+        '<input type="text" name="credit_name_' + idx + '" placeholder="Full name" value="' + defaultName + '" />',
+      '</div>',
+      '<div class="field"><label>Role</label>',
+        '<select name="credit_role_' + idx + '" onchange="checkOtherRole(this,'creditOther' + idx + '')">',
+          roleOptions,
+        '</select>',
+        '<input type="text" id="creditOther' + idx + '" name="credit_role_other_' + idx + '"',
+          'placeholder="Describe role..." ',
+          'style="display:' + otherDisplay + ';margin-top:6px;width:100%;padding:8px 12px;border:1.5px solid var(--border);border-radius:var(--radius);font-family:inherit;font-size:14px;outline:none" />',
+      '</div>',
+      '<div class="field"><label>Notes</label>',
+        '<input type="text" name="credit_notes_' + idx + '" placeholder="Any specific notes" value="' + defaultNotes + '" />',
+      '</div>',
+    '</div>'
+  ].join('');
   container.appendChild(block);
+}
+
+function checkOtherRole(select, otherId) {
+  const other = document.getElementById(otherId);
+  if (other) other.style.display = select.value === 'Other' ? 'block' : 'none';
+}
+
+function loadDefaultCredits() {
+  const defaults = [
+    { name:'Jaimil Desai',                    role:'Artwork / Design',              notes:'Cover art' },
+    { name:'Sohan Kotian',                    role:'Video Production Coordination', notes:'BTS & shoot coordination' },
+    { name:'Paras, Aniket, Sanjana & Karan',  role:'Social Media & Content',        notes:'Pre & post release marketing' },
+    { name:'',                                role:'Scratch Vocalist',              notes:'Sang reference vocals on guide track' },
+    { name:'',                                role:'Vocal Practice Support',        notes:'Teacher who assisted with practice' },
+  ];
+  defaults.forEach(d => addCredit(d.name, d.role, d.notes));
 }
 
 function removeBlock(id) {
@@ -651,6 +681,7 @@ function resetForm() {
   document.getElementById('additionalCredits').innerHTML = '';
   primaryCount = featCount = creditCount = 0;
   addArtist('primary');
+  loadDefaultCredits();
   document.getElementById('releaseForm').style.display = 'block';
   document.querySelector('.admin-bar').style.display = 'flex';
   document.getElementById('adminPanel').style.display = 'block';

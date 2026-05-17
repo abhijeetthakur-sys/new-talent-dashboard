@@ -3809,6 +3809,14 @@ function OriginalsSection({ data, canEdit, onUpdate, period, ytApiKey, airtableC
   const flagship   = data.flagship   || [];
   const devotional = data.devotional || [];
 
+  // Auto-fetch submissions on mount whenever a token is available
+  React.useEffect(() => {
+    if (accessToken) {
+      loadRmSubmissions(accessToken);
+      loadTsSubmissions(accessToken);
+    }
+  }, [accessToken]);
+
   const open = (type, form, idx) => setModal({type, form, idx:idx??null});
   const close = () => setModal(null);
 

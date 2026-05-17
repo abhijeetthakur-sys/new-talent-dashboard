@@ -3773,6 +3773,9 @@ function OriginalsSection({ data, canEdit, onUpdate, period, ytApiKey, airtableC
   const [rmError, setRmError] = React.useState("");
   const [rmQ, setRmQ] = React.useState("");
   const [rmExpanded, setRmExpanded] = React.useState(null);
+  const [relExpanded, setRelExpanded] = React.useState(null);
+  const [relFilter, setRelFilter] = React.useState("all");
+  const [relQ, setRelQ] = React.useState("");
   const RM_SHEET_ID = "1kB80SrX2r_LQXnFzB78dJ_hOgMIBVk9pvwoN7ZOSSsc";
   const RM_FORM_URL = "https://talent-originals.vercel.app/ao-release-form.html";
   const RM_SHEET_URL = `https://docs.google.com/spreadsheets/d/${RM_SHEET_ID}`;
@@ -3848,8 +3851,289 @@ function OriginalsSection({ data, canEdit, onUpdate, period, ytApiKey, airtableC
         <KPI val={scouting.length} label="Scouting Pipeline" sub={`${scouting.filter(s=>s.status==="interested"||s.status==="material sent").length} warm leads`} color="#6D28D9" />
       </div>
 
-      <SubTabs tabs={["Pipeline","Flagship","Teacher Originals","Scouting","Festival Calendar","Metadata"]} active={tab} onChange={v=>{setTab(v); if(v==="Teacher Originals") setToSubSection("Submissions");}} accent="#9D174D" />
+      <SubTabs tabs={["Pipeline","Releases","Teacher Originals","Flagship","Scouting","Festival Calendar","Metadata"]} active={tab} onChange={v=>{setTab(v); if(v==="Teacher Originals") setToSubSection("Submissions");}} accent="#9D174D" />
       {tab==="Pipeline" && <OriginalsPlanningModule data={data} canEdit={canEdit} onUpdate={onUpdate} anthropicKey={anthropicKey} />}
+
+      {/* ── RELEASES TAB ── */}
+      {tab==="Releases" && (()=>{
+        // Merge all sources into unified release records
+        const allReleases = [
+          // From Release Metadata form (richest data)
+          ...rmSubmissions.map(s=>({
+            _source:"metadata",
+            _id: s.submittedAt||Math.random().toString(36),
+            title: s.song_title||"Untitled",
+            artist: s.primary_name_1||s.primary_legal_1||"—",
+            artistType: s.release_type||"—",
+            language: s.language||"",
+            genre: s.genre||"",
+            status: s.rm_status||"Received",
+            releaseDate: s.release_date_audio||"",
+            targetMonth: s.target_release_month||"",
+            label: s.label_name||"Artium Originals",
+            distributor: s.distribution_partner||"",
+            dspLink: s.folder_audio||"",
+            ytLink: s.yt_channel||"",
+            artworkLink: s.artwork_link||"",
+            composer: s.composer_names||"",
+            producer: s.producer_name||"",
+            submittedAt: (s.submittedAt||"").slice(0,10),
+            _raw: s,
+          })),
+          // From Flagship (localStorage)
+          ...flagship.map((f,i)=>({
+            _source:"flagship",
+            _id:"flagship_"+i,
+            title: f.title||"Untitled",
+            artist: f.artist||"—",
+            artistType: "Student Original",
+            language: f.genre||"",
+            genre: f.genre||"",
+            status: f.status||"planned",
+            releaseDate: f.releaseDate||"",
+            targetMonth: "",
+            label: "Artium Originals",
+            distributor: f.distributor||"",
+            dspLink: f.distributorLink||"",
+            ytLink: "",
+            artworkLink: "",
+            composer: f.composer||"",
+            producer: f.producer||"",
+            submittedAt: "",
+            _raw: f,
+          })),
+          // From Teacher Production (localStorage)
+          ...devotional.filter(d=>d.songTitle||d.name).map((d,i)=>({
+            _source:"teacher",
+            _id:"teacher_"+i,
+            title: d.songTitle||d.name||"Untitled",
+            artist: d.name||"—",
+            artistType: d.trackCategory||d.religion||"Teacher Series",
+            language: d.language||"",
+            genre: d.genre||d.type||"",
+            status: d.prodStatus==="done"?"Released":d.prodStatus==="in progress"?"In Production":"Pending",
+            releaseDate: d.releaseDate||"",
+            targetMonth: "",
+            label: "Artium Originals",
+            distributor: "",
+            dspLink: d.dspLink||"",
+            ytLink: d.ytLink||"",
+            artworkLink: "",
+            composer: "",
+            producer: "",
+            submittedAt: "",
+            _raw: d,
+          })),
+          // From Teacher Submissions (Google Sheet)
+          ...tsSubmissions.filter(s=>!devotional.some(d=>d.name===(s.teacherName||s["teacherName"])&&d.songTitle===(s.songTitle||s["songTitle"]))).map((s,i)=>({
+            _source:"ts_submission",
+            _id:"ts_"+i,
+            title: s.songTitle||s["songTitle"]||"Untitled",
+            artist: s.teacherName||s["teacherName"]||"—",
+            artistType: s.trackType||s["trackType"]||"Teacher Series",
+            language: s.language||s["language"]||"",
+            genre: s.genre||s["genre"]||"",
+            status: s.status||"Submitted",
+            releaseDate: "",
+            targetMonth: "",
+            label: "Artium Originals",
+            distributor: "",
+            dspLink: s.audioLink||s["audioLink"]||"",
+            ytLink: "",
+            artworkLink: "",
+            composer: s.composer||s["composer"]||"",
+            producer: "",
+            submittedAt: (s.submittedAt||s["submittedAt"]||"").slice(0,10),
+            _raw: s,
+          })),
+        ];
+
+        // Status color map
+        const SC = {"Released":"#047857","Live":"#047857","done":"#047857","In Production":"#6D28D9","in progress":"#6D28D9","Approved":"#047857","Under Review":"#B45309","Received":"#1E40AF","Submitted":"#1E40AF","planned":"#6B7280","Pending":"#6B7280","On Hold":"#6B7280","Rejected":"#DC2626","rejected":"#DC2626"};
+        const getColor = s => SC[s]||"#6B7280";
+
+        const sourceLabel = {"metadata":"📋 Metadata","flagship":"⭐ Flagship","teacher":"👨‍🏫 Teacher","ts_submission":"📝 Submission"};
+        const sourceBg = {"metadata":"rgba(109,40,217,0.08)","flagship":"rgba(180,83,9,0.08)","teacher":"rgba(30,64,175,0.08)","ts_submission":"rgba(4,120,87,0.08)"};
+        const sourceColor = {"metadata":"#6D28D9","flagship":"#B45309","teacher":"#1E40AF","ts_submission":"#047857"};
+
+        // Filter
+        let rows = allReleases;
+        if(relFilter!=="all") rows = rows.filter(r=>r._source===relFilter);
+        if(relQ.trim().length>1) {
+          const q=relQ.toLowerCase();
+          rows=rows.filter(r=>[r.title,r.artist,r.genre,r.language,r.artistType].some(v=>(v||"").toLowerCase().includes(q)));
+        }
+
+        // Stats
+        const released = allReleases.filter(r=>["Released","Live","done"].includes(r.status)).length;
+        const inProd = allReleases.filter(r=>["In Production","in progress","Approved"].includes(r.status)).length;
+        const submitted = allReleases.filter(r=>["Received","Submitted","Under Review"].includes(r.status)).length;
+
+        return (
+          <div>
+            {/* Header */}
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:18, flexWrap:"wrap", gap:10 }}>
+              <div>
+                <div style={{ fontSize:15, fontWeight:800, color:"#1A1A1A" }}>All Releases</div>
+                <div style={{ fontSize:12, color:"#6B7280", marginTop:2 }}>Unified view — Teacher Series · Student Originals · Flagship · External Artists</div>
+              </div>
+              <div style={{ display:"flex", gap:8 }}>
+                <button onClick={()=>{ loadRmSubmissions(accessToken); loadTsSubmissions(accessToken); }} style={{ background:"#F9FAFB", border:"1px solid #E5E7EB", borderRadius:8, color:"#374151", padding:"7px 13px", fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>⟳ Refresh All</button>
+              </div>
+            </div>
+
+            {/* KPIs */}
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:10, marginBottom:18 }}>
+              {[["Total Releases",allReleases.length,"#1A1A1A"],["Released",released,"#047857"],["In Production",inProd,"#6D28D9"],["Submitted/Review",submitted,"#1E40AF"]].map(([l,v,c])=>(
+                <div key={l} style={{ background:"#fff", border:"1px solid #E5E7EB", borderRadius:12, padding:"12px 16px", textAlign:"center" }}>
+                  <div style={{ fontFamily:"monospace", fontSize:22, fontWeight:800, color:c }}>{v}</div>
+                  <div style={{ fontSize:10, color:"#6B7280", marginTop:2 }}>{l}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Filters */}
+            <div style={{ display:"flex", gap:8, marginBottom:14, flexWrap:"wrap", alignItems:"center" }}>
+              <input value={relQ} onChange={e=>setRelQ(e.target.value)} placeholder="Search title, artist, genre…"
+                style={{ flex:"1 1 200px", background:"#F9FAFB", border:"1px solid #E5E7EB", borderRadius:8, padding:"7px 12px", fontSize:12, fontFamily:"inherit", outline:"none" }} />
+              {[["all","All"],["metadata","Metadata"],["flagship","Flagship"],["teacher","Teacher"],["ts_submission","Submissions"]].map(([k,l])=>(
+                <button key={k} onClick={()=>setRelFilter(k)}
+                  style={{ padding:"6px 14px", borderRadius:99, border:`1px solid ${relFilter===k?"#9D174D":"#E5E7EB"}`, background:relFilter===k?"rgba(157,23,77,0.08)":"#fff", color:relFilter===k?"#9D174D":"#6B7280", fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>
+                  {l} {k==="all"?`(${allReleases.length})`:k==="metadata"?`(${rmSubmissions.length})`:k==="flagship"?`(${flagship.length})`:k==="teacher"?`(${devotional.length})`:`(${tsSubmissions.length})`}
+                </button>
+              ))}
+              <span style={{ fontSize:11, color:"#6B7280" }}>{rows.length} records</span>
+            </div>
+
+            {/* Release cards */}
+            <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+              {rows.length===0 && <div style={{ textAlign:"center", padding:"40px", color:"#6B7280", fontSize:13 }}>No releases found. Add tracks or refresh from Drive.</div>}
+              {rows.map((r,i)=>{
+                const isExp = relExpanded===i;
+                const stColor = getColor(r.status);
+                return (
+                  <div key={r._id} style={{ background:"#fff", border:`1px solid ${isExp?"rgba(157,23,77,0.3)":"#E5E7EB"}`, borderRadius:12, overflow:"hidden" }}>
+                    {/* Card header */}
+                    <div style={{ padding:"14px 18px", cursor:"pointer" }} onClick={()=>setRelExpanded(isExp?null:i)}>
+                      <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:12, flexWrap:"wrap" }}>
+                        <div style={{ flex:1, minWidth:200 }}>
+                          <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:4 }}>
+                            <div style={{ fontSize:14, fontWeight:800, color:"#1A1A1A" }}>{r.title}</div>
+                            <span style={{ fontSize:9, fontWeight:700, background:sourceBg[r._source], color:sourceColor[r._source], borderRadius:99, padding:"2px 7px", flexShrink:0 }}>{sourceLabel[r._source]}</span>
+                          </div>
+                          <div style={{ fontSize:12, color:"#6B7280" }}>{r.artist}{r.artistType&&r.artistType!==r.artist?` · ${r.artistType}`:""}</div>
+                          <div style={{ display:"flex", gap:6, marginTop:5, flexWrap:"wrap" }}>
+                            {r.language&&<span style={{ fontSize:10, background:"rgba(0,0,0,0.04)", color:"#6B7280", borderRadius:5, padding:"2px 7px" }}>{r.language}</span>}
+                            {r.genre&&<span style={{ fontSize:10, background:"rgba(0,0,0,0.04)", color:"#6B7280", borderRadius:5, padding:"2px 7px" }}>{r.genre}</span>}
+                            {r.releaseDate&&<span style={{ fontSize:10, color:"#047857", fontWeight:600 }}>Released: {r.releaseDate}</span>}
+                            {!r.releaseDate&&r.targetMonth&&<span style={{ fontSize:10, color:"#B45309", fontWeight:600 }}>Target: {r.targetMonth}</span>}
+                            {r.submittedAt&&<span style={{ fontSize:10, color:"#9CA3AF" }}>Submitted: {r.submittedAt}</span>}
+                          </div>
+                        </div>
+                        <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:6 }}>
+                          <span style={{ fontSize:11, fontWeight:700, background:`${stColor}12`, color:stColor, border:`1px solid ${stColor}30`, borderRadius:99, padding:"3px 10px" }}>{r.status}</span>
+                          {r.label&&<span style={{ fontSize:10, color:"#9CA3AF" }}>{r.label}</span>}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Expand bar */}
+                    <div style={{ background:"rgba(0,0,0,0.02)", borderTop:"1px solid rgba(0,0,0,0.04)", padding:"6px 18px", display:"flex", alignItems:"center", justifyContent:"space-between", cursor:"pointer" }}
+                      onClick={()=>setRelExpanded(isExp?null:i)}>
+                      <div style={{ display:"flex", gap:12 }}>
+                        {r.dspLink&&<a href={r.dspLink} target="_blank" rel="noreferrer" onClick={e=>e.stopPropagation()} style={{ fontSize:11, color:"#047857", fontWeight:700, textDecoration:"none" }}>🎵 Listen</a>}
+                        {r.ytLink&&<a href={r.ytLink} target="_blank" rel="noreferrer" onClick={e=>e.stopPropagation()} style={{ fontSize:11, color:"#DC2626", fontWeight:700, textDecoration:"none" }}>▶ YouTube</a>}
+                        {r.artworkLink&&<a href={r.artworkLink} target="_blank" rel="noreferrer" onClick={e=>e.stopPropagation()} style={{ fontSize:11, color:"#1E40AF", fontWeight:700, textDecoration:"none" }}>🖼 Artwork</a>}
+                      </div>
+                      <span style={{ fontSize:11, color:"#9CA3AF", fontWeight:600 }}>{isExp?"▲ Less":"▼ Full details"}</span>
+                    </div>
+
+                    {/* Expanded detail */}
+                    {isExp && (
+                      <div style={{ borderTop:"1px solid rgba(0,0,0,0.06)", padding:"20px 18px", background:"rgba(249,250,251,0.7)" }}>
+                        {/* Credits & Production */}
+                        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))", gap:10, marginBottom:16 }}>
+                          {[["Composer",r.composer],["Producer",r.producer],["Distributor",r.distributor],["Label",r.label]].filter(([,v])=>v).map(([l,v])=>(
+                            <div key={l} style={{ background:"#fff", border:"1px solid #F3F4F6", borderRadius:8, padding:"8px 12px" }}>
+                              <div style={{ fontSize:10, color:"#9CA3AF", marginBottom:2 }}>{l}</div>
+                              <div style={{ fontSize:12, color:"#1A1A1A", fontWeight:500 }}>{v}</div>
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Full metadata if from RM */}
+                        {r._source==="metadata" && r._raw && (()=>{
+                          const s = r._raw;
+                          const metaSections = [
+                            {title:"Track Details", fields:[["Language","language"],["Genre","genre"],["Sub-Genre","sub_genre"],["Recording Year","recording_year"],["Explicit","explicit"],["Is Original","is_original"]]},
+                            {title:"Primary Artist", fields:[["Email","primary_email_1"],["Phone","primary_phone_1"],["Instagram","primary_instagram_1"],["YouTube","primary_youtube_1"],["IPRS","primary_iprs_1"],["Nationality","primary_nationality_1"]]},
+                            {title:"Rights", fields:[["Copyright (C)","copyright_c"],["Copyright (P)","copyright_p"],["Ownership","ownership_pct"],["Publishing Rights","publishing_rights"],["Territories","territories"],["Content ID","content_id"]]},
+                            {title:"Release Dates", fields:[["Audio Release","release_date_audio"],["Video Release","release_date_video"],["Pre-save","presave_date"]]},
+                            {title:"Files", fields:[["Audio","folder_audio"],["Artwork","folder_artwork"],["Docs","folder_docs"],["Lyrics","folder_lyrics"]]},
+                          ];
+                          return metaSections.map(sec=>{
+                            const rows2 = sec.fields.filter(([,k])=>s[k]&&s[k].trim());
+                            if(!rows2.length) return null;
+                            return (
+                              <div key={sec.title} style={{ marginBottom:14 }}>
+                                <div style={{ fontSize:10, fontWeight:700, color:"#9D174D", textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:6 }}>{sec.title}</div>
+                                <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))", gap:8 }}>
+                                  {rows2.map(([label,key])=>(
+                                    <div key={key} style={{ background:"#fff", border:"1px solid #F3F4F6", borderRadius:8, padding:"8px 12px" }}>
+                                      <div style={{ fontSize:10, color:"#9CA3AF", marginBottom:2 }}>{label}</div>
+                                      <div style={{ fontSize:12, color:"#1A1A1A", fontWeight:500, wordBreak:"break-word" }}>
+                                        {(s[key]||"").startsWith("http")?<a href={s[key]} target="_blank" rel="noreferrer" style={{ color:"#1E40AF" }}>Open ↗</a>:s[key]}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            );
+                          });
+                        })()}
+
+                        {/* Flagship stages */}
+                        {r._source==="flagship" && r._raw?.stages && (
+                          <div style={{ marginBottom:14 }}>
+                            <div style={{ fontSize:10, fontWeight:700, color:"#9D174D", textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:6 }}>Pipeline Stages</div>
+                            <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+                              {Object.entries(r._raw.stages).map(([k,v])=>(
+                                <span key={k} style={{ fontSize:10, fontWeight:700, padding:"3px 9px", borderRadius:99, background:v==="done"?"rgba(4,120,87,0.1)":v==="in progress"?"rgba(180,83,9,0.1)":"rgba(0,0,0,0.04)", color:v==="done"?"#047857":v==="in progress"?"#B45309":"#6B7280" }}>
+                                  {k}: {v}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Teacher track details */}
+                        {r._source==="teacher" && (
+                          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))", gap:8, marginBottom:14 }}>
+                            {[["Scratch Status",r._raw.scratchStatus],["Final Status",r._raw.finalStatus],["Album Art",r._raw.albumArtStatus],["Religion",r._raw.religion],["Deity",r._raw.deity]].filter(([,v])=>v&&v!=="not yet").map(([l,v])=>(
+                              <div key={l} style={{ background:"#fff", border:"1px solid #F3F4F6", borderRadius:8, padding:"8px 12px" }}>
+                                <div style={{ fontSize:10, color:"#9CA3AF", marginBottom:2 }}>{l}</div>
+                                <div style={{ fontSize:12, color:"#1A1A1A", fontWeight:500 }}>{v}</div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Notes / description */}
+                        {(r._raw?.notes||r._raw?.special_notes||r._raw?.desc_short) && (
+                          <div style={{ background:"#fff", border:"1px solid #F3F4F6", borderRadius:8, padding:"12px 14px", fontSize:12, color:"#374151", lineHeight:1.7 }}>
+                            {r._raw?.desc_short||r._raw?.notes||r._raw?.special_notes}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
+
 
       {/* ── Flagship ── */}
       {tab==="Flagship" && (

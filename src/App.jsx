@@ -4017,10 +4017,19 @@ function OriginalsSection({ data, canEdit, onUpdate, period, ytApiKey, airtableC
                     <div style={{ padding:"14px 18px", cursor:"pointer" }} onClick={()=>setRelExpanded(isExp?null:i)}>
                       <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:12, flexWrap:"wrap" }}>
                         <div style={{ flex:1, minWidth:200 }}>
-                          <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:4 }}>
-                            <div style={{ fontSize:14, fontWeight:800, color:"#1A1A1A" }}>{r.title}</div>
-                            <span style={{ fontSize:9, fontWeight:700, background:sourceBg[r._source], color:sourceColor[r._source], borderRadius:99, padding:"2px 7px", flexShrink:0 }}>{sourceLabel[r._source]}</span>
-                          </div>
+                          {(()=>{
+                            // Auto-match: find if this metadata record matches a flagship or teacher track
+                            const matchF = r._source==="metadata" && flagship.find(f=>(f.title||"").toLowerCase().trim()===(r.title||"").toLowerCase().trim()||(f.artist||"").toLowerCase().trim()===(r.artist||"").toLowerCase().trim());
+                            const matchD = r._source==="metadata" && devotional.find(d=>(d.songTitle||d.name||"").toLowerCase().trim()===(r.title||"").toLowerCase().trim()||(d.name||"").toLowerCase().trim()===(r.artist||"").toLowerCase().trim());
+                            const matched = matchF||matchD;
+                            return (
+                              <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:4 }}>
+                                <div style={{ fontSize:14, fontWeight:800, color:"#1A1A1A" }}>{r.title}</div>
+                                <span style={{ fontSize:9, fontWeight:700, background:sourceBg[r._source], color:sourceColor[r._source], borderRadius:99, padding:"2px 7px", flexShrink:0 }}>{sourceLabel[r._source]}</span>
+                                {matched && <span style={{ fontSize:9, fontWeight:700, background:"rgba(4,120,87,0.1)", color:"#047857", border:"1px solid rgba(4,120,87,0.25)", borderRadius:99, padding:"2px 7px" }}>🔗 Auto-matched</span>}
+                              </div>
+                            );
+                          })()}
                           <div style={{ fontSize:12, color:"#6B7280" }}>{r.artist}{r.artistType&&r.artistType!==r.artist?` · ${r.artistType}`:""}</div>
                           <div style={{ display:"flex", gap:6, marginTop:5, flexWrap:"wrap" }}>
                             {r.language&&<span style={{ fontSize:10, background:"rgba(0,0,0,0.04)", color:"#6B7280", borderRadius:5, padding:"2px 7px" }}>{r.language}</span>}
@@ -4065,31 +4074,65 @@ function OriginalsSection({ data, canEdit, onUpdate, period, ytApiKey, airtableC
                         {r._source==="metadata" && r._raw && (()=>{
                           const s = r._raw;
                           const metaSections = [
-                            {title:"Track Details", fields:[["Language","language"],["Genre","genre"],["Sub-Genre","sub_genre"],["Recording Year","recording_year"],["Explicit","explicit"],["Is Original","is_original"]]},
-                            {title:"Primary Artist", fields:[["Email","primary_email_1"],["Phone","primary_phone_1"],["Instagram","primary_instagram_1"],["YouTube","primary_youtube_1"],["IPRS","primary_iprs_1"],["Nationality","primary_nationality_1"]]},
-                            {title:"Rights", fields:[["Copyright (C)","copyright_c"],["Copyright (P)","copyright_p"],["Ownership","ownership_pct"],["Publishing Rights","publishing_rights"],["Territories","territories"],["Content ID","content_id"]]},
+                            {title:"Track Details", fields:[["Language","language"],["Genre","genre"],["Sub-Genre","sub_genre"],["Recording Year","recording_year"],["Explicit","explicit"],["Is Original","is_original"],["Traditional Source","traditional_source"]]},
+                            {title:"Primary Artist", fields:[["Email","primary_email_1"],["Phone","primary_phone_1"],["DOB","primary_dob_1"],["Instagram","primary_instagram_1"],["YouTube","primary_youtube_1"],["Spotify","primary_spotify_1"],["IPRS","primary_iprs_1"],["IPRS No","primary_iprs_num_1"],["Nationality","primary_nationality_1"],["Address","primary_address_1"]]},
+                            {title:"Credits", fields:[["Composer","composer_names"],["Lyricist","lyricist_names"],["Producer","producer_name"],["Mix Engineer","mix_engineer"],["Mastering Engineer","mastering_engineer"],["Recording Studio","recording_studio"]]},
+                            {title:"Rights & Distribution", fields:[["Label","label_name"],["Publisher","publisher"],["Copyright (C)","copyright_c"],["Copyright (P)","copyright_p"],["Ownership %","ownership_pct"],["Performer Rights","performer_rights"],["Publishing Rights","publishing_rights"],["Territories","territories"],["Distributor","distribution_partner"],["Content ID","content_id"],["YT Channel","yt_channel"],["Spotify Admin","spotify_admin"]]},
                             {title:"Release Dates", fields:[["Audio Release","release_date_audio"],["Video Release","release_date_video"],["Pre-save","presave_date"]]},
-                            {title:"Files", fields:[["Audio","folder_audio"],["Artwork","folder_artwork"],["Docs","folder_docs"],["Lyrics","folder_lyrics"]]},
+                            {title:"Files & Links", fields:[["Audio","folder_audio"],["Artwork","folder_artwork"],["Artwork Link","artwork_link"],["Video","folder_video"],["Docs","folder_docs"],["Lyrics","folder_lyrics"]]},
+                            {title:"Visual Assets", fields:[["Cover Art File","art_filename"],["Dimensions","art_dimensions"],["Design Credit","art_design_credit"],["Photo Credit","art_photo_credit"],["Copyright on Art","art_copyright_line"]]},
+                            {title:"Music Video", fields:[["Director","mv_director"],["DOP","mv_dop"],["Editor","mv_editor"],["Canvas","mv_canvas"],["Thumbnail","mv_thumbnail"]]},
+                            {title:"Marketing", fields:[["Tagline","tagline"],["Press Quote","press_quote"],["Spotify Pitch","spotify_pitch"]]},
                           ];
-                          return metaSections.map(sec=>{
-                            const rows2 = sec.fields.filter(([,k])=>s[k]&&s[k].trim());
-                            if(!rows2.length) return null;
-                            return (
-                              <div key={sec.title} style={{ marginBottom:14 }}>
-                                <div style={{ fontSize:10, fontWeight:700, color:"#9D174D", textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:6 }}>{sec.title}</div>
-                                <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))", gap:8 }}>
-                                  {rows2.map(([label,key])=>(
-                                    <div key={key} style={{ background:"#fff", border:"1px solid #F3F4F6", borderRadius:8, padding:"8px 12px" }}>
-                                      <div style={{ fontSize:10, color:"#9CA3AF", marginBottom:2 }}>{label}</div>
-                                      <div style={{ fontSize:12, color:"#1A1A1A", fontWeight:500, wordBreak:"break-word" }}>
-                                        {(s[key]||"").startsWith("http")?<a href={s[key]} target="_blank" rel="noreferrer" style={{ color:"#1E40AF" }}>Open ↗</a>:s[key]}
-                                      </div>
+                          // Additional credits
+                          const addCredits = [];
+                          for(let ci=1;ci<=10;ci++){
+                            const n=s[`credit_name_${ci}`]; const r2=s[`credit_role_${ci}`]; const nt=s[`credit_notes_${ci}`];
+                            if(n||r2) addCredits.push({name:n||"",role:r2||"",notes:nt||""});
+                          }
+                          return (
+                            <>
+                              {metaSections.map(sec=>{
+                                const rows2 = sec.fields.filter(([,k])=>s[k]&&s[k].trim());
+                                if(!rows2.length) return null;
+                                return (
+                                  <div key={sec.title} style={{ marginBottom:14 }}>
+                                    <div style={{ fontSize:10, fontWeight:700, color:"#9D174D", textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:6 }}>{sec.title}</div>
+                                    <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))", gap:8 }}>
+                                      {rows2.map(([label,key])=>(
+                                        <div key={key} style={{ background:"#fff", border:"1px solid #F3F4F6", borderRadius:8, padding:"8px 12px" }}>
+                                          <div style={{ fontSize:10, color:"#9CA3AF", marginBottom:2 }}>{label}</div>
+                                          <div style={{ fontSize:12, color:"#1A1A1A", fontWeight:500, wordBreak:"break-word" }}>
+                                            {(s[key]||"").startsWith("http")?<a href={s[key]} target="_blank" rel="noreferrer" style={{ color:"#1E40AF" }}>Open ↗</a>:s[key]}
+                                          </div>
+                                        </div>
+                                      ))}
                                     </div>
-                                  ))}
+                                  </div>
+                                );
+                              })}
+                              {addCredits.length>0 && (
+                                <div style={{ marginBottom:14 }}>
+                                  <div style={{ fontSize:10, fontWeight:700, color:"#9D174D", textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:6 }}>Additional Credits</div>
+                                  <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+                                    {addCredits.map((c,ci)=>(
+                                      <div key={ci} style={{ background:"#fff", border:"1px solid #F3F4F6", borderRadius:8, padding:"8px 14px", display:"flex", gap:16, flexWrap:"wrap" }}>
+                                        <span style={{ fontSize:12, fontWeight:700, color:"#1A1A1A" }}>{c.name}</span>
+                                        <span style={{ fontSize:11, color:"#9D174D", fontWeight:600 }}>{c.role}</span>
+                                        {c.notes&&<span style={{ fontSize:11, color:"#6B7280" }}>{c.notes}</span>}
+                                      </div>
+                                    ))}
+                                  </div>
                                 </div>
-                              </div>
-                            );
-                          });
+                              )}
+                              {s.primary_bio_1&&<div style={{ marginBottom:14 }}><div style={{ fontSize:10, fontWeight:700, color:"#9D174D", textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:6 }}>Artist Bio</div><div style={{ background:"#fff", border:"1px solid #F3F4F6", borderRadius:8, padding:"12px 14px", fontSize:12, color:"#374151", lineHeight:1.7 }}>{s.primary_bio_1}</div></div>}
+                              {s.desc_short&&<div style={{ marginBottom:14 }}><div style={{ fontSize:10, fontWeight:700, color:"#9D174D", textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:6 }}>Short Description</div><div style={{ background:"#fff", border:"1px solid #F3F4F6", borderRadius:8, padding:"12px 14px", fontSize:12, color:"#374151", lineHeight:1.7 }}>{s.desc_short}</div></div>}
+                              {s.desc_long&&<div style={{ marginBottom:14 }}><div style={{ fontSize:10, fontWeight:700, color:"#9D174D", textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:6 }}>Press Note</div><div style={{ background:"#fff", border:"1px solid #F3F4F6", borderRadius:8, padding:"12px 14px", fontSize:12, color:"#374151", lineHeight:1.7 }}>{s.desc_long}</div></div>}
+                              {s.artwork_notes&&<div style={{ marginBottom:14 }}><div style={{ fontSize:10, fontWeight:700, color:"#9D174D", textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:6 }}>Artwork Notes</div><div style={{ background:"#fff", border:"1px solid #F3F4F6", borderRadius:8, padding:"12px 14px", fontSize:12, color:"#374151", lineHeight:1.7 }}>{s.artwork_notes}</div></div>}
+                              {s.press_quote&&<div style={{ marginBottom:14 }}><div style={{ fontSize:10, fontWeight:700, color:"#9D174D", textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:6 }}>Press Quote</div><div style={{ background:"rgba(157,23,77,0.04)", border:"1px solid rgba(157,23,77,0.1)", borderRadius:8, padding:"12px 14px", fontSize:13, color:"#374151", lineHeight:1.7, fontStyle:"italic" }}>"{s.press_quote}"</div></div>}
+                              {s.lyrics&&<div style={{ marginBottom:14 }}><div style={{ fontSize:10, fontWeight:700, color:"#9D174D", textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:6 }}>Lyrics</div><div style={{ background:"#fff", border:"1px solid #F3F4F6", borderRadius:8, padding:"12px 14px", fontSize:12, color:"#374151", lineHeight:2, fontFamily:"serif" }}>{s.lyrics.split("\n").map((l,li)=><div key={li}>{l||<br/>}</div>)}</div></div>}
+                            </>
+                          );
                         })()}
 
                         {/* Flagship stages */}

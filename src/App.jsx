@@ -3856,10 +3856,35 @@ function OriginalsSection({ data, canEdit, onUpdate, period, ytApiKey, airtableC
 
       {/* ── RELEASES TAB ── */}
       {tab==="Releases" && (()=>{
+        // ── RM match helper ──────────────────────────────────────────────
+        // Normalise a string to lowercase letters/digits only for fuzzy compare
+        const normT = s => (s||"").toLowerCase().replace(/[^a-z0-9]/g,"");
+        // Build a lookup: normTitle → rmSubmission (first match wins)
+        const rmByTitle = {};
+        rmSubmissions.forEach(s=>{
+          const k = normT(s.song_title);
+          if(k && !rmByTitle[k]) rmByTitle[k] = s;
+        });
+        // Also index by primary artist name so we can match even if title differs slightly
+        const rmByArtist = {};
+        rmSubmissions.forEach(s=>{
+          const k = normT(s.primary_name_1||s.primary_legal_1);
+          if(k && !rmByArtist[k]) rmByArtist[k] = s;
+        });
+        // Returns the best RM submission for a flagship track, or null
+        const findRM = f => {
+          const tk = normT(f.title);
+          const ak = normT(f.artist);
+          return rmByTitle[tk] || rmByArtist[ak] || null;
+        };
+        // Set of RM submittedAt keys that are matched to a flagship (used to de-dup)
+        const matchedRmKeys = new Set(
+          flagship.map(f=>findRM(f)).filter(Boolean).map(s=>s.submittedAt||String(s._rowIndex))
+        );
         // Merge all sources into unified release records
         const allReleases = [
-          // From Release Metadata form (richest data)
-          ...rmSubmissions.map(s=>({
+          // From Release Metadata form (richest data) — skip entries already matched to a flagship
+          ...rmSubmissions.filter(s=>!matchedRmKeys.has(s.submittedAt||String(s._rowIndex))).map(s=>({
             _source:"metadata",
             _id: s.submittedAt||Math.random().toString(36),
             title: s.song_title||"Untitled",
@@ -3880,28 +3905,37 @@ function OriginalsSection({ data, canEdit, onUpdate, period, ytApiKey, airtableC
             submittedAt: (s.submittedAt||"").slice(0,10),
             _raw: s,
           })),
-          // From Flagship (localStorage)
-          ...flagship.map((f,i)=>({
-            _source:"flagship",
-            _id:"flagship_"+i,
-            title: f.title||"Untitled",
-            artist: f.artist||"—",
-            artistType: "Student Original",
-            language: f.genre||"",
-            genre: f.genre||"",
-            status: f.status||"planned",
-            releaseDate: f.releaseDate||"",
-            targetMonth: "",
-            label: "Artium Originals",
-            distributor: f.distributor||"",
-            dspLink: f.distributorLink||"",
-            ytLink: "",
-            artworkLink: "",
-            composer: f.composer||"",
-            producer: f.producer||"",
-            submittedAt: "",
-            _raw: f,
-          })),
+          // From Flagship (localStorage) — merged with RM submission if matched
+          ...flagship.map((f,i)=>{
+            const rm = findRM(f); // matched RM submission, or null
+            // If RM matched, auto-flip metadata stage to done
+            const mergedStages = rm
+              ? { ...(f.stages||{}), metadata: "done" }
+              : (f.stages||{});
+            return {
+              _source:"flagship",
+              _id:"flagship_"+i,
+              title: f.title||"Untitled",
+              artist: f.artist||"—",
+              artistType: "Student Original",
+              language: f.genre||"",
+              genre: f.genre||"",
+              status: f.status||"planned",
+              releaseDate: f.releaseDate||rm?.release_date_audio||"",
+              targetMonth: rm?.target_release_month||"",
+              label: rm?.label_name||"Artium Originals",
+              distributor: rm?.distribution_partner||f.distributor||"",
+              dspLink: rm?.folder_audio||f.distributorLink||"",
+              ytLink: rm?.yt_channel||"",
+              artworkLink: rm?.artwork_link||"",
+              composer: rm?.composer_names||f.composer||"",
+              producer: rm?.producer_name||f.producer||"",
+              submittedAt: (rm?.submittedAt||"").slice(0,10),
+              _raw: f,
+              _rm: rm||null,       // full RM submission attached for detail view
+              _stages: mergedStages,
+            };
+          }),
           // From Teacher Production (localStorage)
           ...devotional.filter(d=>d.songTitle||d.name).map((d,i)=>({
             _source:"teacher",
@@ -4070,9 +4104,9 @@ function OriginalsSection({ data, canEdit, onUpdate, period, ytApiKey, airtableC
                           ))}
                         </div>
 
-                        {/* Full metadata if from RM */}
-                        {r._source==="metadata" && r._raw && (()=>{
-                          const s = r._raw;
+                        {/* Full metadata if from RM (either direct RM entry, or flagship with matched RM) */}
+                        {(r._source==="metadata" || (r._source==="flagship" && r._rm)) && (()=>{
+                          const s = r._source==="metadata" ? r._raw : r._rm;
                           const metaSections = [
                             {title:"Track Details", fields:[["Language","language"],["Genre","genre"],["Sub-Genre","sub_genre"],["Recording Year","recording_year"],["Explicit","explicit"],["Is Original","is_original"],["Traditional Source","traditional_source"]]},
                             {title:"Primary Artist", fields:[["Email","primary_email_1"],["Phone","primary_phone_1"],["DOB","primary_dob_1"],["Instagram","primary_instagram_1"],["YouTube","primary_youtube_1"],["Spotify","primary_spotify_1"],["IPRS","primary_iprs_1"],["IPRS No","primary_iprs_num_1"],["Nationality","primary_nationality_1"],["Address","primary_address_1"]]},
@@ -4136,11 +4170,14 @@ function OriginalsSection({ data, canEdit, onUpdate, period, ytApiKey, airtableC
                         })()}
 
                         {/* Flagship stages */}
-                        {r._source==="flagship" && r._raw?.stages && (
+                        {r._source==="flagship" && (r._stages||r._raw?.stages) && (
                           <div style={{ marginBottom:14 }}>
-                            <div style={{ fontSize:10, fontWeight:700, color:"#9D174D", textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:6 }}>Pipeline Stages</div>
+                            <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6 }}>
+                              <div style={{ fontSize:10, fontWeight:700, color:"#9D174D", textTransform:"uppercase", letterSpacing:"0.1em" }}>Pipeline Stages</div>
+                              {r._rm && <span style={{ fontSize:9, fontWeight:700, background:"rgba(4,120,87,0.1)", color:"#047857", border:"1px solid rgba(4,120,87,0.25)", borderRadius:99, padding:"2px 7px" }}>✅ Metadata form received</span>}
+                            </div>
                             <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
-                              {Object.entries(r._raw.stages).map(([k,v])=>(
+                              {Object.entries(r._stages||r._raw?.stages||{}).map(([k,v])=>(
                                 <span key={k} style={{ fontSize:10, fontWeight:700, padding:"3px 9px", borderRadius:99, background:v==="done"?"rgba(4,120,87,0.1)":v==="in progress"?"rgba(180,83,9,0.1)":"rgba(0,0,0,0.04)", color:v==="done"?"#047857":v==="in progress"?"#B45309":"#6B7280" }}>
                                   {k}: {v}
                                 </span>

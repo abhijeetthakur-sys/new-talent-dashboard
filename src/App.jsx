@@ -3691,7 +3691,7 @@ function TeacherSeriesTab({ submissions, loading, error, accessToken, onLoad, on
   );
 }
 
-function OriginalsSection({ data, canEdit, onUpdate, period, ytApiKey, airtableConfig, anthropicKey, accessToken }) {
+function OriginalsSection({ data, canEdit, onUpdate, period, ytApiKey, airtableConfig, anthropicKey, accessToken, onSignIn }) {
   const [monthlyEntryFor, setMonthlyEntryFor] = useState(null); // index of flagship song
   const [tab, setTab] = useState("Pipeline");
   const { ask:confirmDelete, ConfirmModal:DeleteConfirmModal } = useConfirmDelete();
@@ -3786,7 +3786,10 @@ function OriginalsSection({ data, canEdit, onUpdate, period, ytApiKey, airtableC
     setRmLoading(true); setRmError("");
     try {
       const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${RM_SHEET_ID}/values/${encodeURIComponent("Release Metadata!A:AZ")}`, { headers: { Authorization: `Bearer ${token}` } });
-      if (!res.ok) { setRmError("Could not load sheet"); setRmLoading(false); return; }
+      if (!res.ok) {
+        if (res.status === 401 && onSignIn) { setRmLoading(false); onSignIn(t => loadRmSubmissions(t)); return; }
+        setRmError("Could not load sheet (status " + res.status + ")"); setRmLoading(false); return;
+      }
       const json = await res.json();
       const rows = json.values || [];
       if (rows.length < 2) { setRmSubmissions([]); setRmLoading(false); return; }
@@ -17886,7 +17889,7 @@ export default function App() {
           {section==="chat"      && <ChatSection data={data} anthropicKey={anthropicKey} onUpdate={nd=>{ const merged={...data,...nd}; setData(merged); try{localStorage.setItem("artium-cms-v4",JSON.stringify(merged));}catch{} }} />}
           {section==="atdp"      && <ErrorBoundary><ATDPSection data={data.atdp} canEdit={canEdit} canMarkAtt={canMarkAtt} canSyncRsvp={canSyncRsvp} onUpdate={v=>updateSection("atdp",v)} period={period} anthropicKey={anthropicKey} isMobile={isMobile} fullData={data} onMarkAttendance={()=>setShowMobileAtt(true)} /></ErrorBoundary>}
           {section==="unmute"    && <UnmuteSection data={data.unmute} canEdit={canEditUnmute} onUpdate={v=>updateSection("unmute",v)} period={period} ytApiKey={ytApiKey} onCloudSave={handleDriveSave} onCloudLoad={handleDriveLoad} gdriveStatus={gdriveStatus} accessToken={accessToken} onSignIn={()=>signIn(async (token)=>{ await handleDriveLoadWithToken(token); })} />}
-          {section==="originals" && <ErrorBoundary><OriginalsSection data={data.originals} canEdit={canEditOriginals} onUpdate={v=>updateSection("originals",v)} period={period} ytApiKey={ytApiKey} airtableConfig={airtableConfig} anthropicKey={anthropicKey} accessToken={accessToken} /></ErrorBoundary>}
+          {section==="originals" && <ErrorBoundary><OriginalsSection data={data.originals} canEdit={canEditOriginals} onUpdate={v=>updateSection("originals",v)} period={period} ytApiKey={ytApiKey} airtableConfig={airtableConfig} anthropicKey={anthropicKey} accessToken={accessToken} onSignIn={cb=>signIn(cb)} /></ErrorBoundary>}
           {section==="analysis"  && <AnalysisSection data={data} period={period} anthropicKey={anthropicKey} unmuteCadence={unmuteCadence} />}
           {section==="deadlines" && <DeadlinesSection canEdit={canEdit} anthropicKey={anthropicKey} />}
           {section==="pms"       && <PMSSection data={data} anthropicKey={anthropicKey} />}

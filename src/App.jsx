@@ -7979,7 +7979,7 @@ Tone: Friendly, direct, not pushy. Like a mentor checking in. Max 4 lines. No su
   }
 
   function openWhatsApp() {
-    const phone = context.phone ? context.phone.replace(/\D/g, "") : "";
+    const phone = context.phone ? String(context.phone).replace(/\D/g, "") : "";
     const msg = encodeURIComponent(draft);
     if (phone) window.open(`https://wa.me/${phone}?text=${msg}`, "_blank");
     else window.open(`https://wa.me/?text=${msg}`, "_blank");
@@ -17131,8 +17131,8 @@ export default function App() {
             const sStripped = stripInitials(sLower);
             const cnWords = cn.split(/[\s.]+/).filter(w=>w.length>2);
             const sWords  = sLower.split(/[\s.]+/).filter(w=>w.length>2);
-            const cPhone = (c.phone||"").replace(/\D/g,"");
-            const sPhone = (student.phone||"").replace(/\D/g,"");
+            const cPhone = String(c.phone||"").replace(/\D/g,"");
+            const sPhone = String(student.phone||"").replace(/\D/g,"");
             const phoneMatch = cPhone.length>=8 && sPhone.length>=8 && cPhone.slice(-8)===sPhone.slice(-8);
             const sharedWords = cnWords.filter(w=>sWords.includes(w));
             return phoneMatch ||

@@ -3782,12 +3782,22 @@ function OriginalsSection({ data, canEdit, onUpdate, period, ytApiKey, airtableC
   const RM_STAGES = ["Received","Under Review","Approved","In Production","Released","On Hold","Rejected"];
   const RM_STAGE_COLORS = {"Received":"#1E40AF","Under Review":"#B45309","Approved":"#047857","In Production":"#6D28D9","Released":"#065F46","On Hold":"#6B7280","Rejected":"#DC2626"};
   async function loadRmSubmissions(token) {
-    if (!token) { setRmError("Sign in to Google Drive first"); return; }
+    if (!token) {
+      // No token — trigger sign-in then retry automatically
+      if (onSignIn) { onSignIn(t => loadRmSubmissions(t)); }
+      else { setRmError("Sign in to Google Drive first"); }
+      return;
+    }
     setRmLoading(true); setRmError("");
     try {
       const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${RM_SHEET_ID}/values/${encodeURIComponent("Release Metadata!A:AZ")}`, { headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) {
-        if (res.status === 401 && onSignIn) { setRmLoading(false); onSignIn(t => loadRmSubmissions(t)); return; }
+        if (res.status === 401 && onSignIn) {
+          // Token expired — get a fresh one and retry
+          setRmLoading(false);
+          onSignIn(freshToken => loadRmSubmissions(freshToken));
+          return;
+        }
         setRmError("Could not load sheet (status " + res.status + ")"); setRmLoading(false); return;
       }
       const json = await res.json();
@@ -3867,31 +3877,13 @@ function OriginalsSection({ data, canEdit, onUpdate, period, ytApiKey, airtableC
 
       {/* ── RELEASES TAB ── */}
       {tab==="Releases" && (()=>{
-        // ── RM match helper ──────────────────────────────────────────────
-        // Normalise a string to lowercase letters/digits only for fuzzy compare
         const normT = s => (s||"").toLowerCase().replace(/[^a-z0-9]/g,"");
-        // Build a lookup: normTitle → rmSubmission (first match wins)
         const rmByTitle = {};
-        rmSubmissions.forEach(s=>{
-          const k = normT(s.song_title);
-          if(k && !rmByTitle[k]) rmByTitle[k] = s;
-        });
-        // Also index by primary artist name so we can match even if title differs slightly
+        rmSubmissions.forEach(s=>{ const k=normT(s.song_title); if(k&&!rmByTitle[k]) rmByTitle[k]=s; });
         const rmByArtist = {};
-        rmSubmissions.forEach(s=>{
-          const k = normT(s.primary_name_1||s.primary_legal_1);
-          if(k && !rmByArtist[k]) rmByArtist[k] = s;
-        });
-        // Returns the best RM submission for a flagship track, or null
-        const findRM = f => {
-          const tk = normT(f.title);
-          const ak = normT(f.artist);
-          return rmByTitle[tk] || rmByArtist[ak] || null;
-        };
-        // Set of RM submittedAt keys that are matched to a flagship (used to de-dup)
-        const matchedRmKeys = new Set(
-          flagship.map(f=>findRM(f)).filter(Boolean).map(s=>s.submittedAt||String(s._rowIndex))
-        );
+        rmSubmissions.forEach(s=>{ const k=normT(s.primary_name_1||s.primary_legal_1); if(k&&!rmByArtist[k]) rmByArtist[k]=s; });
+        const findRM = f => { const tk=normT(f.title); const ak=normT(f.artist); return rmByTitle[tk]||rmByArtist[ak]||null; };
+        const matchedRmKeys = new Set(flagship.map(f=>findRM(f)).filter(Boolean).map(s=>s.submittedAt||String(s._rowIndex)));
         // Merge all sources into unified release records
         const allReleases = [
           // From Release Metadata form (richest data) — skip entries already matched to a flagship
@@ -3918,11 +3910,8 @@ function OriginalsSection({ data, canEdit, onUpdate, period, ytApiKey, airtableC
           })),
           // From Flagship (localStorage) — merged with RM submission if matched
           ...flagship.map((f,i)=>{
-            const rm = findRM(f); // matched RM submission, or null
-            // If RM matched, auto-flip metadata stage to done
-            const mergedStages = rm
-              ? { ...(f.stages||{}), metadata: "done" }
-              : (f.stages||{});
+            const rm = findRM(f);
+            const mergedStages = rm ? { ...(f.stages||{}), metadata: "done" } : (f.stages||{});
             return {
               _source:"flagship",
               _id:"flagship_"+i,
@@ -3943,7 +3932,7 @@ function OriginalsSection({ data, canEdit, onUpdate, period, ytApiKey, airtableC
               producer: rm?.producer_name||f.producer||"",
               submittedAt: (rm?.submittedAt||"").slice(0,10),
               _raw: f,
-              _rm: rm||null,       // full RM submission attached for detail view
+              _rm: rm||null,
               _stages: mergedStages,
             };
           }),
@@ -4115,7 +4104,7 @@ function OriginalsSection({ data, canEdit, onUpdate, period, ytApiKey, airtableC
                           ))}
                         </div>
 
-                        {/* Full metadata if from RM (either direct RM entry, or flagship with matched RM) */}
+                        {/* Full metadata if from RM (direct entry or flagship with matched RM) */}
                         {(r._source==="metadata" || (r._source==="flagship" && r._rm)) && (()=>{
                           const s = r._source==="metadata" ? r._raw : r._rm;
                           const metaSections = [

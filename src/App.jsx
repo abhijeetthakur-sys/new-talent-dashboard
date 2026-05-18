@@ -3911,7 +3911,11 @@ function OriginalsSection({ data, canEdit, onUpdate, period, ytApiKey, airtableC
           // From Flagship (localStorage) — merged with RM submission if matched
           ...flagship.map((f,i)=>{
             const rm = findRM(f);
-            const mergedStages = rm ? { ...(f.stages||{}), metadata: "done" } : (f.stages||{});
+            const TASK_STAGE_MAP = { composition:"composition", recording:"recording", musicProd:"production", mixMaster:"mixMaster", metadata:"metadata", distribution:"distribution" };
+            const effectiveTasks = f.tasks && f.tasks.length > 0 ? f.tasks : DEFAULT_FLAGSHIP_TASKS;
+            const stagesFromTasks = {};
+            effectiveTasks.forEach(t => { const sk = TASK_STAGE_MAP[t.key]; if(sk) stagesFromTasks[sk] = t.done ? "done" : "pending"; });
+            const mergedStages = rm ? { ...stagesFromTasks, metadata: "done" } : stagesFromTasks;
             return {
               _source:"flagship",
               _id:"flagship_"+i,

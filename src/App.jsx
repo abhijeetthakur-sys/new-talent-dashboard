@@ -17137,9 +17137,20 @@ export default function App() {
           const sLower = (student.name||"").toLowerCase().trim();
           const match = contracts.find(c => {
             const cn = (c.studentName||c.signerName||"").toLowerCase().trim();
-            const cFirst = cn.split(" ")[0];
-            return cn === sLower || cn.includes(sLower) || sLower.includes(cn) ||
-              (cFirst && sFirst && cFirst === sFirst && cFirst.length > 2);
+            const stripInitials = s => s.replace(/\b[a-z]\.?\s*/g, "").trim();
+            const cnStripped = stripInitials(cn);
+            const sStripped = stripInitials(sLower);
+            const cnWords = cn.split(/[\s.]+/).filter(w=>w.length>2);
+            const sWords  = sLower.split(/[\s.]+/).filter(w=>w.length>2);
+            const cPhone = (c.phone||"").replace(/\D/g,"");
+            const sPhone = (student.phone||"").replace(/\D/g,"");
+            const phoneMatch = cPhone.length>=8 && sPhone.length>=8 && cPhone.slice(-8)===sPhone.slice(-8);
+            const sharedWords = cnWords.filter(w=>sWords.includes(w));
+            return phoneMatch ||
+              cn===sLower || cn.includes(sLower) || sLower.includes(cn) ||
+              cnStripped===sStripped ||
+              cnStripped.includes(sStripped) || sStripped.includes(cnStripped) ||
+              sharedWords.length>=2;
           });
           if (match) {
             matched++;

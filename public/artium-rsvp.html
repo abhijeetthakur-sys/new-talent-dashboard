@@ -478,23 +478,6 @@
       <div class="section-label">Choose Sessions</div>
       <div class="sessions" id="sessions">
 
-        <div class="session-card" data-id="social-media" onclick="toggleSession(this)">
-          <div class="checkbox">
-            <svg width="12" height="9" viewBox="0 0 12 9" fill="none">
-              <path d="M1 4.5L4.5 8L11 1" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </div>
-          <div class="session-info">
-            <div class="session-name">Social Media for Musicians &amp; Artists</div>
-            <div class="session-subtitle">Session 2 · Decoding the social media of a mystery artist</div>
-            <div class="session-mentor">Mentor: <strong>Shrey Jadav</strong></div>
-            <div class="session-meta">
-              <span>📅 20 Mar 2026</span>
-              <span>🕕 6:00 PM IST</span>
-            </div>
-          </div>
-        </div>
-
         <div class="session-card" data-id="carnatic" onclick="toggleSession(this)">
           <div class="checkbox">
             <svg width="12" height="9" viewBox="0 0 12 9" fill="none">
@@ -503,10 +486,10 @@
           </div>
           <div class="session-info">
             <div class="session-name">The Carnatic Grooming Series</div>
-            <div class="session-subtitle">Session 1 · Voice Awareness &amp; Alignment</div>
+            <div class="session-subtitle">Session 03 · Breath - Phrase Integration</div>
             <div class="session-mentor">Mentor: <strong>Sidhi Krishnamoorthy</strong></div>
             <div class="session-meta">
-              <span>📅 25 Mar 2026</span>
+              <span>📅 10 June 2026</span>
               <span>🕕 6:00 PM IST</span>
             </div>
           </div>
@@ -520,11 +503,28 @@
           </div>
           <div class="session-info">
             <div class="session-name">The Nuances of Western Vocals</div>
-            <div class="session-subtitle">Session 2 · Discover how your sound moves and add color to your singing</div>
+            <div class="session-subtitle">Session 05 · Vibrato Control & Stability</div>
             <div class="session-mentor">Mentor: <strong>Rachel Dohling</strong></div>
             <div class="session-meta">
-              <span>📅 30 Mar 2026</span>
+              <span>📅 15 June 2026</span>
               <span>🕖 7:00 PM IST</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="session-card" data-id="song-performance-lab" onclick="toggleSession(this)">
+          <div class="checkbox">
+            <svg width="12" height="9" viewBox="0 0 12 9" fill="none">
+              <path d="M1 4.5L4.5 8L11 1" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <div class="session-info">
+            <div class="session-name">Song Performance Lab</div>
+            <div class="session-subtitle">Session 05 · Song Video watching & Film watching essentials</div>
+            <div class="session-mentor">Mentor: <strong>Jaydeep Bagwadkar</strong></div>
+            <div class="session-meta">
+              <span>📅 25 June 2026</span>
+              <span>🕖 8:00 PM IST</span>
             </div>
           </div>
         </div>
@@ -607,7 +607,7 @@
     const CONFIG = {
 
       // The month label shown in the banner at the top of the form
-      month: "May 2026",
+      month: "June 2026",
 
       // Sessions for this month — add, remove, or edit as needed.
       // Each session needs:
@@ -621,33 +621,25 @@
         {
           id:       "carnatic",
           name:     "The Carnatic Grooming Series",
-          subtitle: "Session 02 · Sruti - Absolute Control",
+          subtitle: "Session 03 · Breath - Phrase Integration",
           mentor:   "Sidhi Krishnamoorthy",
-          date:     "13 May 2026",
+          date:     "10 June 2026",
           time:     "6:00 PM IST"
         },
         {
           id:       "song-performance-lab",
           name:     "Song Performance Lab",
-          subtitle: "Session 04 · Song Tempo & Marking Tempo Bars",
+          subtitle: "Session 05 · Song Video watching & Film watching essentials",
           mentor:   "Jaydeep Bagwadkar",
-          date:     "19 May 2026",
+          date:     "25 June 2026",
           time:     "8:00 PM IST"
-        },
-        {
-          id:       "social-media",
-          name:     "Social Media for Musicians & Artists",
-          subtitle: "Session 03 · Instagram Aesthetics & Incorporating it for Artists",
-          mentor:   "Shrey Jadav",
-          date:     "22 May 2026",
-          time:     "6:00 PM IST"
         },
         {
           id:       "western-vocals",
           name:     "The Nuances of Western Vocals",
-          subtitle: "Session 04 · Vocal Onset",
+          subtitle: "Session 05 · Vibrato Control & Stability",
           mentor:   "Rachel Dohling",
-          date:     "25 May 2026",
+          date:     "15 June 2026",
           time:     "7:00 PM IST"
         }
       ]

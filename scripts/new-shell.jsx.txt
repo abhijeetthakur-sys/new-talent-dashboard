@@ -1,0 +1,163 @@
+      {/* ── Masthead — ui-kit top nav (Talent Command) ── */}
+      <div style={{ position: "relative", zIndex: 500, background: C.bg, borderBottom: `1.5px solid ${C.ink}`, flexShrink: 0 }}>
+        <div style={{ maxWidth: 1340, margin: "0 auto", display: "flex", alignItems: "center", gap: 14, padding: "12px 28px" }}>
+          {/* wordmark */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+            <img src={LOGO_ARTIUM} alt="Artium" style={{ height: 32, width: 32, objectFit: "cover", objectPosition: "left center", borderRadius: 7, flexShrink: 0 }} />
+            <div className="mh-sub" style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
+              <div style={{ fontFamily: "'Bricolage Grotesque',sans-serif", fontSize: 20, fontWeight: 800, letterSpacing: "-0.03em", color: C.ink }}>ARTIUM</div>
+              <div style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 9.5, letterSpacing: "0.22em", textTransform: "uppercase", color: C.muted, borderLeft: `1px solid ${C.border}`, paddingLeft: 10, whiteSpace: "nowrap" }}>Talent&nbsp;Command</div>
+            </div>
+          </div>
+
+          {/* nav pills */}
+          <div className="mh-nav" style={{ display: "flex", gap: 1, alignItems: "center", flex: 1, minWidth: 0, overflowX: "auto" }}>
+            {NAV.map((n) => {
+              const on = section === n.key;
+              return (
+                <button key={n.key} onClick={() => setSection(n.key)}
+                  style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 9px", borderRadius: 5, border: "none", background: on ? C.ink : "transparent", color: on ? C.bg : C.muted, cursor: "pointer", fontFamily: "'Archivo',sans-serif", fontSize: 12.5, fontWeight: 600, whiteSpace: "nowrap", transition: "color .15s", flexShrink: 0 }}
+                  onMouseEnter={(e) => { if (!on) e.currentTarget.style.color = C.ink; }}
+                  onMouseLeave={(e) => { if (!on) e.currentTarget.style.color = C.muted; }}>
+                  <NavGlyph name={n.key} size={14} color="currentColor" />{n.label.replace(" ✦", "")}
+                </button>);
+            })}
+          </div>
+
+          {/* right cluster */}
+          <div style={{ display: "flex", alignItems: "center", gap: 9, flexShrink: 0 }}>
+            {/* day / night toggle */}
+            <button onClick={toggleTheme} title="Toggle day / night"
+              style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 6px 5px 10px", borderRadius: 20, cursor: "pointer", background: theme === "dark" ? C.hi : C.raise, border: `1px solid ${C.border}`, color: C.ink }}>
+              <NavGlyph name={theme === "light" ? "sun" : "moon"} size={15} color={C.acc} />
+              <span style={{ width: 28, height: 16, borderRadius: 10, background: theme === "dark" ? C.acc : C.border, position: "relative", transition: "background .3s", flexShrink: 0 }}>
+                <span style={{ position: "absolute", top: 2, left: theme === "dark" ? 13 : 2, width: 12, height: 12, borderRadius: "50%", background: "#fff", transition: "left .3s", boxShadow: "0 1px 3px rgba(0,0,0,.3)" }} />
+              </span>
+            </button>
+
+            {/* streak */}
+            <div style={{ display: "flex", alignItems: "center", gap: 5 }} title={`${streak}-day streak`}>
+              <NavGlyph name="flame" size={15} color={C.acc} />
+              <span style={{ fontFamily: "'Bricolage Grotesque',sans-serif", fontSize: 14, fontWeight: 700, color: C.ink }}>{streak}</span>
+            </div>
+
+            {/* XP ring */}
+            <div className="mh-sub" style={{ position: "relative", width: 34, height: 34 }} title={`Level 24 · 3,400 / 5,000 XP`}>
+              <div style={{ position: "absolute", inset: 0, borderRadius: "50%", background: `conic-gradient(${C.acc} ${(3400 / 5000) * 360}deg, ${C.border} 0)` }} />
+              <div style={{ position: "absolute", inset: 3, borderRadius: "50%", background: C.ink, color: C.bg, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Bricolage Grotesque',sans-serif", fontSize: 12, fontWeight: 800 }}>24</div>
+            </div>
+
+            {/* search */}
+            <button onClick={() => setShowSearch(true)} title="Search (⌘K)"
+              style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, borderRadius: 5, background: "transparent", border: `1px solid ${C.border}`, color: C.muted, cursor: "pointer", transition: "all .15s" }}
+              onMouseEnter={(e) => { e.currentTarget.style.borderColor = C.ink; e.currentTarget.style.color = C.ink; }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.muted; }}>
+              <NavGlyph name="search" size={14} color="currentColor" />
+            </button>
+
+            {/* notifications */}
+            <div style={{ position: "relative" }}>
+              <button onClick={() => { setShowNotifCentre((p) => !p); setNotifSeen(true); setNewRsvpCount(0); }} title="Notifications"
+                style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, borderRadius: 5, background: unreadCount > 0 ? C.redDim : "transparent", border: `1px solid ${unreadCount > 0 ? C.err : C.border}`, color: unreadCount > 0 ? C.err : C.muted, cursor: "pointer", transition: "all .15s" }}
+                onMouseEnter={(e) => { if (!unreadCount) { e.currentTarget.style.borderColor = C.ink; e.currentTarget.style.color = C.ink; } }}
+                onMouseLeave={(e) => { if (!unreadCount) { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.muted; } }}>
+                <NavGlyph name="bell" size={14} color="currentColor" />
+              </button>
+              {unreadCount > 0 &&
+                <div style={{ position: "absolute", top: -5, right: -5, background: C.err, color: "#fff", borderRadius: 99, fontSize: 9, fontWeight: 800, minWidth: 16, height: 16, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 4px", border: `2px solid ${C.bg}`, pointerEvents: "none", fontFamily: "'Archivo',sans-serif" }}>
+                  {unreadCount}
+                </div>
+              }
+            </div>
+
+            {/* settings */}
+            <button onClick={() => setShowSettings(true)} title="Settings"
+              style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, borderRadius: 5, background: "transparent", border: `1px solid ${C.border}`, color: C.muted, cursor: "pointer", transition: "all .15s" }}
+              onMouseEnter={(e) => { e.currentTarget.style.borderColor = C.ink; e.currentTarget.style.color = C.ink; }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.muted; }}>
+              <NavGlyph name="settings" size={14} color="currentColor" />
+            </button>
+
+            {/* user pill — click to sign out */}
+            <button onClick={() => { setUser(null); localStorage.removeItem("artium-session-user"); }} title={`${user?.title || user?.role || ""} · Click to sign out`}
+              style={{ display: "flex", alignItems: "center", gap: 7, padding: "5px 10px 5px 6px", borderRadius: 20, cursor: "pointer", background: C.hi, border: `1px solid ${C.border}`, color: C.ink, transition: "border-color .15s", fontFamily: "'Archivo',sans-serif" }}
+              onMouseEnter={(e) => e.currentTarget.style.borderColor = C.ink}
+              onMouseLeave={(e) => e.currentTarget.style.borderColor = C.border}>
+              <span style={{ width: 22, height: 22, borderRadius: "50%", background: "rgba(233,30,140,0.12)", border: "1px solid rgba(233,30,140,0.35)", color: "#E91E8C", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Bricolage Grotesque',sans-serif", fontSize: 10, fontWeight: 700, flexShrink: 0 }}>
+                {user?.name?.[0]?.toUpperCase() || "?"}
+              </span>
+              <span className="mh-sub" style={{ fontSize: 12.5, fontWeight: 600 }}>{user?.name}</span>
+              <span style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 9, letterSpacing: "0.1em", textTransform: "uppercase", color: C.acc, background: `${C.acc}18`, border: `1px solid ${C.acc}30`, borderRadius: 3, padding: "3px 7px", whiteSpace: "nowrap", fontWeight: 600 }}>
+                {user?.role === "admin" ? "Admin" : user?.role === "jd" ? "JD" : user?.role === "ops" ? "Ops" : user?.role === "editor" ? "Editor" : "Viewer"}
+              </span>
+            </button>
+          </div>
+        </div>
+
+        {/* ── Utility row — section label · saved · sync · period ── */}
+        <div style={{ borderTop: `1px solid ${C.border}`, background: C.bg }}>
+          <div className="topbar-right" style={{ maxWidth: 1340, margin: "0 auto", display: "flex", alignItems: "center", gap: 8, padding: "7px 28px", overflowX: "auto", flexWrap: "nowrap" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginRight: "auto", flexShrink: 0 }}>
+              <span style={{ width: 7, height: 7, borderRadius: "50%", background: SC(section).accent, flexShrink: 0 }} />
+              <span style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 9.5, letterSpacing: "0.18em", textTransform: "uppercase", color: C.muted, whiteSpace: "nowrap" }}>
+                {(NAV.find((n) => n.key === section)?.label || "").replace(" ✦", "")} · Artium Command Centre
+              </span>
+              {saved && <span style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 9.5, letterSpacing: "0.1em", textTransform: "uppercase", color: C.ok, display: "inline-flex", alignItems: "center", gap: 4, whiteSpace: "nowrap" }}><NavGlyph name="check" size={10} color={C.ok} />saved</span>}
+            </div>
+
+            <DriveSyncBar accessToken={accessToken} gdriveStatus={gdriveStatus} gdriveError={gdriveError} onSignIn={() => signIn(async (token) => { await handleDriveLoadWithToken(token); })} onSignOut={signOut} onSave={handleDriveSave} onLoad={handleDriveLoad} />
+
+            <button onClick={() => setShowAIHistory(true)} title="AI history"
+              style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 26, height: 26, borderRadius: 5, background: "transparent", border: `1px solid ${C.border}`, color: C.muted, cursor: "pointer", transition: "all .15s", flexShrink: 0 }}
+              onMouseEnter={(e) => { e.currentTarget.style.borderColor = C.ink; e.currentTarget.style.color = C.ink; }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.muted; }}>
+              <NavGlyph name="tasklist" size={13} color="currentColor" />
+            </button>
+
+            {/* RSVP Sync */}
+            {canSyncRsvp && <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+              <button onClick={syncRsvpsFromSheet} disabled={rsvpSyncing}
+                style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 5, color: rsvpSyncing ? C.faint : C.sec, padding: "4px 10px", fontSize: 11, fontWeight: 600, cursor: rsvpSyncing ? "wait" : "pointer", fontFamily: "'Archivo',sans-serif", display: "flex", alignItems: "center", gap: 6, transition: "all 0.2s", whiteSpace: "nowrap" }}>
+                <span style={{ display: "inline-flex", animation: rsvpSyncing ? "spin 1s linear infinite" : "none" }}><NavGlyph name="users" size={12} color="currentColor" /></span>
+                {rsvpSyncing ? "Syncing..." : "Sync RSVPs"}
+              </button>
+              {rsvpSyncMsg && <span style={{ fontSize: 11, color: rsvpSyncMsg.startsWith("✓") ? C.ok : C.err, fontWeight: 700, whiteSpace: "nowrap" }}>{rsvpSyncMsg}</span>}
+            </div>}
+
+            {/* Contract Sync */}
+            <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+              <button onClick={syncContractsFromSheet} disabled={contractSyncing}
+                style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 5, color: contractSyncing ? C.faint : C.sec, padding: "4px 10px", fontSize: 11, fontWeight: 600, cursor: contractSyncing ? "wait" : "pointer", fontFamily: "'Archivo',sans-serif", display: "flex", alignItems: "center", gap: 6, transition: "all 0.2s", whiteSpace: "nowrap" }}>
+                <span style={{ display: "inline-flex", animation: contractSyncing ? "spin 1s linear infinite" : "none" }}><NavGlyph name="doc" size={12} color="currentColor" /></span>
+                {contractSyncing ? "Syncing..." : "Sync Contracts"}
+              </button>
+              {contractSyncMsg && <span style={{ fontSize: 11, color: contractSyncMsg.startsWith("✓") ? C.ok : C.err, fontWeight: 700, whiteSpace: "nowrap" }}>{contractSyncMsg}</span>}
+            </div>
+
+            {/* Period selector */}
+            <div style={{ position: "relative", flexShrink: 0 }}>
+              <select value={period} onChange={(e) => setPeriod(e.target.value)}
+                style={{ appearance: "none", WebkitAppearance: "none", background: "transparent", border: `1px solid ${C.border}`, borderRadius: 5, padding: "4px 26px 4px 10px", color: C.sec, fontSize: 11, fontWeight: 600, fontFamily: "'Archivo',sans-serif", outline: "none", cursor: "pointer", minWidth: 110 }}>
+                <optgroup label="General">
+                  <option value="all">All Time</option>
+                  <option value="month">This Month</option>
+                  <option value="prev">Last Month</option>
+                </optgroup>
+                <optgroup label="Quarters">
+                  <option value="q1">Q1 (Jan–Mar)</option>
+                  <option value="q2">Q2 (Apr–Jun)</option>
+                  <option value="q3">Q3 (Jul–Sep)</option>
+                  <option value="q4">Q4 (Oct–Dec)</option>
+                </optgroup>
+                <optgroup label="Year">
+                  <option value="2025">FY 2025</option>
+                  <option value="2026">FY 2026</option>
+                </optgroup>
+              </select>
+              <span style={{ position: "absolute", right: 9, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", color: C.faint, fontSize: 8 }}>▼</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, overflow: "hidden" }}>

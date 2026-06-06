@@ -3280,7 +3280,16 @@ function UnmuteSection({ data, canEdit, onUpdate, period, ytApiKey, onCloudSave,
             {canEdit && (data.planning || []).length > 0 &&
             <Btn v="success" sm onClick={() => {
               const p = data.planning[0];
-              const newEd = { id: `e${Date.now()}`, city: p.city, date: p.tentativeDate, venue: p.venue || "", status: "upcoming", notes: p.notes || "", performers: [] };
+              const songs = p.songs || [];
+              const confirmedCands = (p.candidates || []).filter(c => c.status === "confirmed");
+              const performers = confirmedCands.flatMap(c => {
+                const linked = songs.filter(s => s.performer === c.name || s.duetWith === c.name);
+                if (linked.length > 0) {
+                  return linked.map(s => ({ name: c.name, type: c.performerType === "teacher" ? "teacher" : "student", song: s.songTitle || "", ytStatus: "planned", ytDate: "", ytLink: "" }));
+                }
+                return [{ name: c.name, type: c.performerType === "teacher" ? "teacher" : "student", song: "", ytStatus: "planned", ytDate: "", ytLink: "" }];
+              });
+              const newEd = { id: `e${Date.now()}`, city: p.city, date: p.tentativeDate, venue: p.venue || "", status: "upcoming", notes: p.notes || "", performers };
               const newPlanning = data.planning.slice(1);
               onUpdate({ ...data, editions: [...(data.editions || []), newEd], planning: newPlanning });
             }}>{<UiIcon icon="🚀" size={13} />} Go Live</Btn>

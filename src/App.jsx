@@ -7760,6 +7760,11 @@ function JarvisSection({ data, anthropicKey, onUpdate }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [showLog, setShowLog] = useState(false);
+  const [chat, setChat] = useState([]);
+  const [chatInput, setChatInput] = useState("");
+  const [chatLoading, setChatLoading] = useState(false);
+  const chatEndRef = useRef(null);
+  useEffect(() => { if (chatEndRef.current) chatEndRef.current.scrollIntoView({ behavior: "smooth" }); }, [chat]);
 
   function diffData(oldD, newD) {
     if (!oldD) return [];
@@ -7884,6 +7889,45 @@ Max 250 words. No preamble, no sign-off.`;
     try { localStorage.setItem(SNAP_K, JSON.stringify(snap)); } catch {}
   }
 
+  async function sendChat() {
+    const q = chatInput.trim();
+    if (!q) return;
+    const key = anthropicKey || localStorage.getItem("artium-anthropic-key") || "";
+    if (!key) { setError("Add your Anthropic API key in Settings first."); return; }
+    const nextChat = chat.concat([{ role: "user", text: q }]);
+    setChat(nextChat); setChatInput(""); setChatLoading(true); setError("");
+    const sys = `You are Jarvis, the operational brain and advisor for Abhijeet, who single-handedly runs Artium Academy's Talent & Originals division (ATDP grooming + unMute live shows + Artium Originals music label). Be sharp, warm, practical and honest - never generic or corporate. Use real names and numbers, keep answers tight.
+
+ALWAYS reply in English. Abhijeet may write to you in English, Hindi, or Hinglish (Roman-script Hindi) - understand all of them, but always answer in clear English.
+
+CURRENT DEPARTMENT STATE:
+${compactSummary(data)}
+
+WHAT CHANGED SINCE LAST REVIEW:
+${changes.length ? changes.map((c) => "- " + c).join("\n") : "Nothing tracked since the last review."}
+${brief ? "\nMOST RECENT BRIEF YOU GAVE HIM:\n" + brief : ""}`;
+    try {
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 800,
+          system: sys,
+          messages: nextChat.slice(-12).map((m) => ({ role: m.role === "assistant" ? "assistant" : "user", content: m.text }))
+        })
+      });
+      const d = await res.json();
+      if (d.error) throw new Error(d.error.message || "API error");
+      const blk = (d.content || []).find((b) => b.type === "text");
+      const text = (blk && blk.text) || "No response.";
+      setChat(nextChat.concat([{ role: "assistant", text: text }]));
+    } catch (e) {
+      setChat(nextChat.concat([{ role: "assistant", text: "Error: " + ((e && e.message) || String(e)) }]));
+    }
+    setChatLoading(false);
+  }
+
   const btn = (bg) => ({ background: bg, border: "none", borderRadius: 7, color: "#fff", padding: "11px 22px", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "'Archivo',sans-serif" });
 
   return (
@@ -7938,6 +7982,32 @@ Max 250 words. No preamble, no sign-off.`;
               {brief}
             </div>
           )}
+
+          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 16, marginBottom: 16 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 10 }}>Ask Jarvis</div>
+            {chat.length > 0 && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 12, maxHeight: 380, overflowY: "auto" }}>
+                {chat.map((m, i) => (
+                  <div key={i} style={{ alignSelf: m.role === "user" ? "flex-end" : "flex-start", maxWidth: "88%", background: m.role === "user" ? C.acc : C.raise, color: m.role === "user" ? "#fff" : C.ink, border: m.role === "user" ? "none" : `1px solid ${C.border}`, borderRadius: 10, padding: "10px 13px", fontSize: 13.5, lineHeight: 1.55, whiteSpace: "pre-wrap" }}>
+                    {m.text}
+                  </div>
+                ))}
+                {chatLoading && <div style={{ alignSelf: "flex-start", color: C.muted, fontSize: 13, padding: "4px 2px" }}>Jarvis is thinking...</div>}
+                <div ref={chatEndRef} />
+              </div>
+            )}
+            <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
+              <textarea
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendChat(); } }}
+                placeholder="Ask anything - English, Hindi ya Hinglish chalega"
+                rows={2}
+                style={{ flex: 1, resize: "none", background: C.raise, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 12px", fontSize: 13.5, color: C.ink, fontFamily: "'Archivo',sans-serif", lineHeight: 1.5, outline: "none" }}
+              />
+              <button onClick={sendChat} disabled={chatLoading || !chatInput.trim()} style={{ background: C.acc, border: "none", borderRadius: 8, color: "#fff", padding: "11px 18px", fontSize: 13.5, fontWeight: 700, cursor: chatLoading || !chatInput.trim() ? "default" : "pointer", opacity: chatLoading || !chatInput.trim() ? 0.5 : 1, fontFamily: "'Archivo',sans-serif", whiteSpace: "nowrap" }}>Send</button>
+            </div>
+          </div>
 
           {log.length > 0 && (
             <div>

@@ -7605,6 +7605,7 @@ function NavGlyph({ name, size = 17, color = "currentColor" }) {
     deadlines: <><circle {...p} cx="11" cy="12" r="8" /><path {...p} d="M11 8v4l2.5 2" /></>,
     pms: <><circle {...p} cx="11" cy="11" r="8" /><circle {...p} cx="11" cy="11" r="4.4" /><circle cx="11" cy="11" r="1.4" fill={color} stroke="none" /></>,
     chat: <><path {...p} d="M4 5.5h14v10H9l-4 3.5v-3.5H4z" /></>,
+    jarvis: <><path {...p} d="M2 11h4l2-6 3 12 2-7 2 3h4" /></>,
     // ── ui-kit geometric icon set ──
     flame: <><path {...p} d="M11 2.5c1 3-2 4-2 7a3 3 0 0 0 6 0c0-1-1-2-1-2 2 1 3 3 3 5a6 6 0 0 1-12 0c0-4 5-5 6-10z" /></>,
     trophy: <><path {...p} d="M6.5 3.5h9v4a4.5 4.5 0 0 1-9 0z" /><path {...p} d="M6.5 5H4v1.5a2.5 2.5 0 0 0 2.5 2.5M15.5 5H18v1.5a2.5 2.5 0 0 1-2.5 2.5" /><path {...p} d="M11 12v3.5M8 19h6M9 19l.5-3.5h3l.5 3.5" /></>,
@@ -7744,6 +7745,221 @@ function VerticalCards({ data, onNavigate }) {
       </div>
     </div>);
 
+}
+
+function JarvisSection({ data, anthropicKey, onUpdate }) {
+  const SNAP_K = "artium-jarvis-snap";
+  const LOG_K = "artium-jarvis-log";
+  const [savedSnap, setSavedSnap] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(SNAP_K) || "null"); } catch { return null; }
+  });
+  const [log, setLog] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(LOG_K) || "[]"); } catch { return []; }
+  });
+  const [brief, setBrief] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [showLog, setShowLog] = useState(false);
+
+  function diffData(oldD, newD) {
+    if (!oldD) return [];
+    const out = [];
+    const o = oldD, n = newD;
+    const oStud = (o.atdp && o.atdp.students) || [], nStud = (n.atdp && n.atdp.students) || [];
+    const oById = {}; oStud.forEach((s) => { oById[s.id || s.name] = s; });
+    nStud.forEach((s) => {
+      const k = s.id || s.name; const prev = oById[k];
+      if (!prev) { out.push(`New student: ${s.name}${s.city ? " (" + s.city + ")" : ""}`); return; }
+      if (prev.status !== s.status) out.push(`${s.name} - status: ${prev.status || "?"} -> ${s.status || "?"}`);
+      if (!prev.contract && s.contract) out.push(`${s.name} - contract signed`);
+    });
+    const oFl = (o.originals && o.originals.flagship) || [], nFl = (n.originals && n.originals.flagship) || [];
+    const oFlById = {}; oFl.forEach((f) => { oFlById[f.id || f.title] = f; });
+    const doneCount = (st) => Object.values(st || {}).filter((v) => v === "done").length;
+    nFl.forEach((f) => {
+      const k = f.id || f.title; const prev = oFlById[k];
+      if (!prev) { out.push(`New flagship track: "${f.title}" by ${f.artist || "?"}`); return; }
+      if (prev.status !== f.status) out.push(`"${f.title}" - status: ${prev.status || "?"} -> ${f.status || "?"}`);
+      const pd = doneCount(prev.stages), cd = doneCount(f.stages);
+      if (cd > pd) out.push(`"${f.title}" - pipeline advanced: ${pd}/6 -> ${cd}/6 stages`);
+    });
+    const oDev = (o.originals && o.originals.devotional) || [], nDev = (n.originals && n.originals.devotional) || [];
+    const oDevById = {}; oDev.forEach((d) => { oDevById[d.id || d.name] = d; });
+    nDev.forEach((d) => {
+      const k = d.id || d.name; const prev = oDevById[k];
+      if (!prev) { out.push(`New devotional entry: ${d.name}`); return; }
+      if (prev.scratchStatus !== d.scratchStatus) out.push(`${d.name} (devotional) - scratch: ${prev.scratchStatus || "?"} -> ${d.scratchStatus || "?"}`);
+      if (prev.prodStatus !== d.prodStatus) out.push(`${d.name} (devotional) - production: ${prev.prodStatus || "?"} -> ${d.prodStatus || "?"}`);
+      if (!prev.releaseDate && d.releaseDate) out.push(`${d.name} (devotional) - released (${d.releaseDate})`);
+    });
+    const oEd = (o.unmute && o.unmute.editions) || [], nEd = (n.unmute && n.unmute.editions) || [];
+    const oEdById = {}; oEd.forEach((e) => { oEdById[e.id || (e.city + e.date)] = e; });
+    const relCount = (e) => ((e.performers) || []).filter((p) => p.ytStatus === "released").length;
+    nEd.forEach((e) => {
+      const k = e.id || (e.city + e.date); const prev = oEdById[k];
+      if (!prev) { out.push(`New unMute edition: ${e.city} (${e.date || "TBD"})`); return; }
+      const pr = relCount(prev), cr = relCount(e);
+      if (cr > pr) out.push(`unMute ${e.city} - YouTube releases: ${pr} -> ${cr}`);
+    });
+    const oWs = (o.atdp && o.atdp.workshops) || [], nWs = (n.atdp && n.atdp.workshops) || [];
+    const oWsById = {}; oWs.forEach((w) => { oWsById[w.id || w.title || w.name] = w; });
+    nWs.forEach((w) => {
+      const k = w.id || w.title || w.name; const prev = oWsById[k];
+      if (prev && prev.status !== w.status) out.push(`Workshop "${w.title || w.name}" - ${prev.status || "?"} -> ${w.status || "?"}`);
+    });
+    return out;
+  }
+
+  const changes = diffData(savedSnap && savedSnap.data, data);
+
+  function compactSummary(d) {
+    const st = (d.atdp && d.atdp.students) || [];
+    const fl = (d.originals && d.originals.flagship) || [];
+    const dev = (d.originals && d.originals.devotional) || [];
+    const ed = (d.unmute && d.unmute.editions) || [];
+    const ws = (d.atdp && d.atdp.workshops) || [];
+    return [
+      `Month: ${(d.meta && d.meta.month) || "?"}`,
+      `ATDP: ${st.filter((s) => s.status === "active").length}/${st.length} active, ${st.filter((s) => !s.contract).length} contracts pending`,
+      `unMute: ${ed.length} editions done; next ${(d.unmute && d.unmute.nextEdition && d.unmute.nextEdition.city) || "TBD"}`,
+      `Flagship: ${fl.filter((f) => f.status === "released").length}/${fl.length} released, ${fl.filter((f) => f.status === "production").length} in production`,
+      `Devotional: ${dev.filter((x) => x.releaseDate).length}/${dev.length} released, ${dev.filter((x) => x.prodStatus === "in progress").length} in production`,
+      `Workshops: ${ws.filter((w) => w.status === "delayed").length} delayed, ${ws.filter((w) => w.status === "planned").length} planned`
+    ].join("\n");
+  }
+
+  async function runBrief() {
+    const key = anthropicKey || localStorage.getItem("artium-anthropic-key") || "";
+    if (!key) { setError("Add your Anthropic API key in Settings first."); return; }
+    setLoading(true); setError(""); setBrief("");
+    const changeBlock = changes.length ? changes.map((c) => "- " + c).join("\n") : "No tracked changes since the last review.";
+    const today = new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" });
+    const prompt = `You are Jarvis - the operational brain for Abhijeet, who single-handedly runs Artium Academy's Talent & Originals division (ATDP grooming programme + unMute live shows + Artium Originals music label). You are sharp, warm, practical and honest. Never generic, never corporate.
+
+WHAT CHANGED since the last review:
+${changeBlock}
+
+CURRENT STATE:
+${compactSummary(data)}
+
+Today is ${today}.
+
+Write his brief in exactly this structure, using real names and numbers:
+
+WHAT MOVED
+(one tight line per meaningful change; if nothing moved, say so plainly and look at what has been sitting still too long)
+
+WHAT IT MEANS
+(2-3 sentences connecting the dots - momentum building, something quietly slipping, a risk forming)
+
+DO TODAY
+(exactly ONE concrete, high-leverage action for the next 24 hours)
+
+Max 250 words. No preamble, no sign-off.`;
+    try {
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
+        body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 700, messages: [{ role: "user", content: prompt }] })
+      });
+      const d = await res.json();
+      if (d.error) throw new Error(d.error.message || "API error");
+      const txt = (d.content || []).find((b) => b.type === "text");
+      const text = (txt && txt.text) || "No response.";
+      setBrief(text);
+      const entry = { ts: new Date().toISOString(), changes: changes, brief: text };
+      const newLog = [entry].concat(log).slice(0, 60);
+      setLog(newLog);
+      try { localStorage.setItem(LOG_K, JSON.stringify(newLog)); } catch {}
+      const snap = { ts: new Date().toISOString(), data: JSON.parse(JSON.stringify(data)) };
+      setSavedSnap(snap);
+      try { localStorage.setItem(SNAP_K, JSON.stringify(snap)); } catch {}
+    } catch (e) { setError((e && e.message) || String(e)); }
+    setLoading(false);
+  }
+
+  function startTracking() {
+    const snap = { ts: new Date().toISOString(), data: JSON.parse(JSON.stringify(data)) };
+    setSavedSnap(snap);
+    try { localStorage.setItem(SNAP_K, JSON.stringify(snap)); } catch {}
+  }
+
+  const btn = (bg) => ({ background: bg, border: "none", borderRadius: 7, color: "#fff", padding: "11px 22px", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "'Archivo',sans-serif" });
+
+  return (
+    <div style={{ maxWidth: 760, margin: "0 auto", padding: "8px 4px 60px" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
+        <NavGlyph name="jarvis" size={22} color={C.acc} />
+        <div style={{ fontSize: 22, fontWeight: 800, color: C.ink, fontFamily: "'Archivo',sans-serif" }}>Jarvis</div>
+      </div>
+      <div style={{ fontSize: 13, color: C.muted, marginBottom: 18 }}>
+        Your department's nervous system. It watches what changes, tells you what it means, and what to do next.
+      </div>
+
+      {!savedSnap ? (
+        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 20 }}>
+          <div style={{ fontSize: 15, fontWeight: 700, color: C.ink, marginBottom: 6 }}>First run - let me set a baseline</div>
+          <div style={{ fontSize: 13.5, color: C.sec, lineHeight: 1.5, marginBottom: 14 }}>
+            I'll remember today's state of your department. From your next visit on, I'll show you exactly what moved and brief you on it. This costs nothing - I only spend tokens when you ask for a brief.
+          </div>
+          <button onClick={startTracking} style={btn(C.acc)}>Start tracking</button>
+        </div>
+      ) : (
+        <>
+          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 18, marginBottom: 16 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                Changed since {new Date(savedSnap.ts).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
+              </div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: changes.length ? C.acc : C.muted }}>{changes.length} {changes.length === 1 ? "change" : "changes"}</div>
+            </div>
+            {changes.length ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+                {changes.map((c, i) => (
+                  <div key={i} style={{ fontSize: 13.5, color: C.ink, lineHeight: 1.45, paddingLeft: 14, position: "relative" }}>
+                    <span style={{ position: "absolute", left: 0, top: 7, width: 5, height: 5, borderRadius: "50%", background: C.acc }} />
+                    {c}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ fontSize: 13.5, color: C.sec }}>Nothing has changed since your last review. A brief will look at what has been sitting still.</div>
+            )}
+          </div>
+
+          <button onClick={runBrief} disabled={loading} style={{ ...btn(C.acc), width: "100%", marginBottom: 16, opacity: loading ? 0.6 : 1 }}>
+            {loading ? "Thinking..." : "Brief me"}
+          </button>
+
+          {error && <div style={{ background: "rgba(200,60,30,0.08)", border: `1px solid ${C.acc}`, color: C.accDeep, borderRadius: 8, padding: 12, fontSize: 13, marginBottom: 16 }}>{error}</div>}
+
+          {brief && (
+            <div style={{ background: C.raise, border: `1px solid ${C.border}`, borderRadius: 10, padding: 20, marginBottom: 16, whiteSpace: "pre-wrap", fontSize: 14, lineHeight: 1.6, color: C.ink, fontFamily: "'Archivo',sans-serif" }}>
+              {brief}
+            </div>
+          )}
+
+          {log.length > 0 && (
+            <div>
+              <button onClick={() => setShowLog(!showLog)} style={{ background: "transparent", border: "none", color: C.muted, fontSize: 12.5, fontWeight: 700, cursor: "pointer", padding: "6px 0", fontFamily: "inherit" }}>
+                {showLog ? "v" : ">"} Past briefs ({log.length})
+              </button>
+              {showLog && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 8 }}>
+                  {log.map((e, i) => (
+                    <div key={i} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 14 }}>
+                      <div style={{ fontSize: 11.5, fontWeight: 700, color: C.muted, marginBottom: 8 }}>{new Date(e.ts).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</div>
+                      <div style={{ fontSize: 13, lineHeight: 1.55, color: C.sec, whiteSpace: "pre-wrap" }}>{e.brief}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
 }
 
 function HomeSection({ data, user, winsToday, onNavigate, anthropicKey }) {
@@ -17026,6 +17242,7 @@ Be specific, use the data, avoid generic praise.`;
 // ─── APP ──────────────────────────────────────────────────────────────────────
 const NAV = [
 { key: "home", label: "Home", icon: "🏠" },
+{ key: "jarvis", label: "Jarvis", icon: "🧠" },
 { key: "atdp", label: "ATDP", icon: "🎓" },
 { key: "unmute", label: "unMute", icon: "🎤" },
 { key: "originals", label: "Originals", icon: "🎵" },
@@ -18209,6 +18426,7 @@ export default function App() {
         <div className="main-content main-content-area" style={{ flex: 1, padding: "28px 28px", background: C.bg, paddingBottom: "90px" }}>
           <div key={section} className="section-enter" style={{ maxWidth: 1340, margin: "0 auto" }}>
           {section === "home" && <HomeSection data={data} user={user} winsToday={winsToday} onNavigate={setSection} anthropicKey={anthropicKey} />}
+          {section === "jarvis" && <JarvisSection data={data} anthropicKey={anthropicKey} onUpdate={updateSection} />}
           {section === "calendar" && <ContentCalendar data={data} onUpdate={(v) => setData(v)} />}
           {section === "chat" && <ChatSection data={data} anthropicKey={anthropicKey} onUpdate={(nd) => {const merged = { ...data, ...nd };setData(merged);try {localStorage.setItem("artium-cms-v4", JSON.stringify(merged));} catch {}}} />}
           {section === "atdp" && <ErrorBoundary><ATDPSection data={data.atdp} canEdit={canEdit} canMarkAtt={canMarkAtt} canSyncRsvp={canSyncRsvp} onUpdate={(v) => updateSection("atdp", v)} period={period} anthropicKey={anthropicKey} isMobile={isMobile} fullData={data} onMarkAttendance={() => setShowMobileAtt(true)} /></ErrorBoundary>}

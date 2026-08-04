@@ -3280,8 +3280,60 @@ function UnmuteSection({ data, canEdit, onUpdate, period, ytApiKey, onCloudSave,
             {canEdit && (data.planning || []).length > 0 &&
             <Btn v="success" sm onClick={() => {
               const p = data.planning[0];
-              const newEd = { id: `e${Date.now()}`, city: p.city, date: p.tentativeDate, venue: p.venue || "", status: "upcoming", notes: p.notes || "", performers: [] };
-              const newPlanning = data.planning.slice(1);
+
+              // ── Carry the planned lineup over to the live edition ──
+              // Planning stores candidates (people) + songs (performer/duetWith + songTitle).
+              // The edition table expects performer rows: { song, name, type, performers_list, … }
+              const TYPE_MAP = { "ATDP Student": "student", "External Student": "student", "Teacher/Mentor": "teacher", "Special Guest": "guest" };
+              const cands = (p.candidates || []).filter((c) => c.status !== "rejected");
+              const norm = (n) => (n || "").trim().toLowerCase();
+              const resolveName = (n) => n === "__other__" ? "" : (n || "").trim();
+              const typeOf = (name) => {
+                const c = cands.find((x) => norm(x.name) === norm(name));
+                return TYPE_MAP[c?.performerType] || "student";
+              };
+
+              const fromSongs = (p.songs || []).map((s) => {
+                const list = [resolveName(s.performer), ...(s.isDuet ? [resolveName(s.duetWith)] : [])].
+                filter(Boolean).
+                map((name) => ({ name, type: typeOf(name) }));
+                return {
+                  song: s.songTitle || "",
+                  name: list.map((x) => x.name).join(" & "),
+                  type: list[0]?.type || "student",
+                  performers_list: list,
+                  collaborators: list.slice(1).map((x) => x.name),
+                  collaboratorTypes: list.slice(1).map((x) => x.type),
+                  ytStatus: "planned", ytDate: "", ytLink: "",
+                  notes: s.notes || ""
+                };
+              }).filter((r) => r.name || r.song);
+
+              // Any non-rejected candidate with no song yet still belongs on the lineup (song TBD).
+              // Deliberately not limited to status "confirmed" — lineups are often locked in
+              // practice without the kanban card ever being moved to the confirmed column.
+              const covered = new Set(fromSongs.flatMap((r) => r.performers_list.map((x) => norm(x.name))));
+              const fromCands = cands.
+              filter((c) => c.name && !covered.has(norm(c.name))).
+              map((c) => {
+                const t = TYPE_MAP[c.performerType] || "student";
+                return {
+                  song: "", name: c.name.trim(), type: t,
+                  performers_list: [{ name: c.name.trim(), type: t }],
+                  collaborators: [], collaboratorTypes: [],
+                  ytStatus: "planned", ytDate: "", ytLink: "",
+                  notes: c.notes || ""
+                };
+              });
+
+              const newEd = {
+                id: `e${Date.now()}`, city: p.city, date: p.tentativeDate, venue: p.venue || "",
+                status: "upcoming", notes: p.notes || "",
+                performers: [...fromSongs, ...fromCands],
+                // Keep the full planning record so checklist/vendors/deliverables aren't lost on Go Live
+                plannedFrom: p
+              };
+              const newPlanning = (data.planning || []).filter((x) => x.id !== p.id);
               onUpdate({ ...data, editions: [...(data.editions || []), newEd], planning: newPlanning });
             }}>{<UiIcon icon="🚀" size={13} />} Go Live</Btn>
             }

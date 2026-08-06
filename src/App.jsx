@@ -3801,6 +3801,34 @@ function TeacherSeriesTab({ submissions, loading, error, accessToken, onLoad, on
 
 }
 
+// ─── SHEET COLUMN HELPERS ────────────────────────────────────────────────────
+function sheetColLetter(n) {
+  let s = "";
+  while (n > 0) {const r = (n - 1) % 26;s = String.fromCharCode(65 + r) + s;n = Math.floor((n - 1) / 26);}
+  return s;
+}
+
+// Resolve a column by its header name instead of hardcoding a letter. These sheets
+// are written by an Apps Script that appends a column whenever a new form field is
+// filled for the first time, so positions move. Returns 0 when the header is absent
+// and `create` is false, letting callers bail rather than write over another column.
+async function sheetColumnByHeader(sheetId, sheetName, header, token, create) {
+  const url = (range, qs = "") => `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(range)}${qs}`;
+  const res = await fetch(url(`${sheetName}!1:1`), { headers: { Authorization: `Bearer ${token}` } });
+  if (!res.ok) return 0;
+  const headers = ((await res.json()).values || [[]])[0] || [];
+  const idx = headers.findIndex((h) => (h || "").trim() === header);
+  if (idx >= 0) return idx + 1;
+  if (!create) return 0;
+  const col = headers.length + 1;
+  await fetch(url(`${sheetName}!${sheetColLetter(col)}1`, "?valueInputOption=RAW"), {
+    method: "PUT",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ values: [[header]] })
+  });
+  return col;
+}
+
 // ─── RELEASE METADATA FIELD MAP ──────────────────────────────────────────────
 // Single source of truth for the Metadata tab (on-screen) and the PDF export, so
 // the two can't drift. Keys must match the column headers the Apps Script writes
@@ -3916,7 +3944,9 @@ function OriginalsSection({ data, canEdit, onUpdate, period, ytApiKey, airtableC
     if (!token) {setTsError("Sign in to Google Drive to load submissions");return;}
     setTsLoading(true);setTsError("");
     try {
-      const range = encodeURIComponent("Teacher Submissions!A:Z");
+      // No column bound — the sheet is exactly 26 wide today, so any new form
+      // field would start silently truncating at Z.
+      const range = encodeURIComponent("Teacher Submissions");
       const res = await fetch(
         `https://sheets.googleapis.com/v4/spreadsheets/${TS_SHEET_ID}/values/${range}`,
         { headers: { Authorization: `Bearer ${token}` } }
@@ -3939,8 +3969,12 @@ function OriginalsSection({ data, canEdit, onUpdate, period, ytApiKey, airtableC
 
   async function updateTsStatus(rowIndex, newStatus, token) {
     if (!token) return;
-    const range = encodeURIComponent(`Teacher Submissions!M${rowIndex}`);
     try {
+      // "status" is column Y, not M — M is audioLink. Resolve it by header so a
+      // status change can never overwrite a submitter's audio link again.
+      const col = await sheetColumnByHeader(TS_SHEET_ID, "Teacher Submissions", "status", token, false);
+      if (!col) {setTsError("Could not find a 'status' column in the sheet");return;}
+      const range = encodeURIComponent(`Teacher Submissions!${sheetColLetter(col)}${rowIndex}`);
       await fetch(
         `https://sheets.googleapis.com/v4/spreadsheets/${TS_SHEET_ID}/values/${range}?valueInputOption=RAW`,
         {
@@ -3989,9 +4023,14 @@ function OriginalsSection({ data, canEdit, onUpdate, period, ytApiKey, airtableC
   async function updateRmStatus(rowIndex, newStatus, token) {
     if (!token) return;
     try {
-      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${RM_SHEET_ID}/values/${encodeURIComponent(`Release Metadata!B${rowIndex}`)}?valueInputOption=RAW`, { method: "PUT", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ values: [[newStatus]] }) });
+      // The sheet has no rm_status column at all — this used to write into column B,
+      // clobbering submittedAt, and the status never persisted because it is read
+      // back by header name. Resolve by header, creating the column on first use.
+      const col = await sheetColumnByHeader(RM_SHEET_ID, "Release Metadata", "rm_status", token, true);
+      if (!col) {setRmError("Could not write status — check sheet permissions");return;}
+      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${RM_SHEET_ID}/values/${encodeURIComponent(`Release Metadata!${sheetColLetter(col)}${rowIndex}`)}?valueInputOption=RAW`, { method: "PUT", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ values: [[newStatus]] }) });
       setRmSubmissions((prev) => prev.map((s) => s._rowIndex === rowIndex ? { ...s, rm_status: newStatus } : s));
-    } catch (e) {}
+    } catch (e) {setRmError("Could not save status");}
   }
 
   const flagship = data.flagship || [];
@@ -4306,44 +4345,32 @@ function OriginalsSection({ data, canEdit, onUpdate, period, ytApiKey, airtableC
                         {/* Full metadata if from RM (either direct RM entry, or flagship with matched RM) */}
                         {(r._source === "metadata" || r._source === "flagship" && r._rm) && (() => {
                         const s = r._source === "metadata" ? r._raw : r._rm;
-                        const metaSections = [
-                        { title: "Track Details", fields: [["Language", "language"], ["Genre", "genre"], ["Sub-Genre", "sub_genre"], ["Recording Year", "recording_year"], ["Explicit", "explicit"], ["Is Original", "is_original"], ["Traditional Source", "traditional_source"]] },
-                        { title: "Primary Artist", fields: [["Email", "primary_email_1"], ["Phone", "primary_phone_1"], ["DOB", "primary_dob_1"], ["Instagram", "primary_instagram_1"], ["YouTube", "primary_youtube_1"], ["Spotify", "primary_spotify_1"], ["IPRS", "primary_iprs_1"], ["IPRS No", "primary_iprs_num_1"], ["Nationality", "primary_nationality_1"], ["Address", "primary_address_1"]] },
-                        { title: "Credits", fields: [["Composer", "composer_names"], ["Lyricist", "lyricist_names"], ["Producer", "producer_name"], ["Mix Engineer", "mix_engineer"], ["Mastering Engineer", "mastering_engineer"], ["Recording Studio", "recording_studio"]] },
-                        { title: "Rights & Distribution", fields: [["Label", "label_name"], ["Publisher", "publisher"], ["Copyright (C)", "copyright_c"], ["Copyright (P)", "copyright_p"], ["Ownership %", "ownership_pct"], ["Performer Rights", "performer_rights"], ["Publishing Rights", "publishing_rights"], ["Territories", "territories"], ["Distributor", "distribution_partner"], ["Content ID", "content_id"], ["YT Channel", "yt_channel"], ["Spotify Admin", "spotify_admin"]] },
-                        { title: "Release Dates", fields: [["Audio Release", "release_date_audio"], ["Video Release", "release_date_video"], ["Pre-save", "presave_date"]] },
-                        { title: "Files & Links", fields: [["Audio", "folder_audio"], ["Artwork", "folder_artwork"], ["Artwork Link", "artwork_link"], ["Video", "folder_video"], ["Docs", "folder_docs"], ["Lyrics", "folder_lyrics"]] },
-                        { title: "Visual Assets", fields: [["Cover Art File", "art_filename"], ["Dimensions", "art_dimensions"], ["Design Credit", "art_design_credit"], ["Photo Credit", "art_photo_credit"], ["Copyright on Art", "art_copyright_line"]] },
-                        { title: "Music Video", fields: [["Director", "mv_director"], ["DOP", "mv_dop"], ["Editor", "mv_editor"], ["Canvas", "mv_canvas"], ["Thumbnail", "mv_thumbnail"]] },
-                        { title: "Marketing", fields: [["Tagline", "tagline"], ["Press Quote", "press_quote"], ["Spotify Pitch", "spotify_pitch"]] }];
+                        // Same shared field map the Metadata tab and PDF use. Credits and the
+                        // press quote are dropped here because this view renders them below
+                        // in their own dedicated blocks.
+                        const metaSections = rmOrderedSections(s).
+                        filter((sec) => sec.title !== "Additional Credits").
+                        map((sec) => ({ ...sec, rows: sec.rows.filter(([, k]) => k !== "press_quote") })).
+                        filter((sec) => sec.rows.length);
+                        const addCredits = rmCredits(s);
 
-                        // Additional credits
-                        const addCredits = [];
-                        for (let ci = 1; ci <= 10; ci++) {
-                          const n = s[`credit_name_${ci}`];const r2 = s[`credit_role_${ci}`];const nt = s[`credit_notes_${ci}`];
-                          if (n || r2) addCredits.push({ name: n || "", role: r2 || "", notes: nt || "" });
-                        }
                         return (
                           <>
-                              {metaSections.map((sec) => {
-                              const rows2 = sec.fields.filter(([, k]) => s[k] && s[k].trim());
-                              if (!rows2.length) return null;
-                              return (
-                                <div key={sec.title} style={{ marginBottom: 14 }}>
+                              {metaSections.map((sec) =>
+                            <div key={sec.title} style={{ marginBottom: 14 }}>
                                     <div style={{ fontSize: 10, fontWeight: 700, color: C.pink, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>{sec.title}</div>
                                     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(160px,1fr))", gap: 8 }}>
-                                      {rows2.map(([label, key]) =>
+                                      {sec.rows.map(([label, key, value]) =>
                                     <div key={key} style={{ background: C.card, border: `1px solid ${C.hi2}`, borderRadius: 4, padding: "8px 12px" }}>
                                           <div style={{ fontSize: 10, color: C.faint, marginBottom: 2 }}>{label}</div>
                                           <div style={{ fontSize: 12, color: C.ink, fontWeight: 500, wordBreak: "break-word" }}>
-                                            {(s[key] || "").startsWith("http") ? <a href={s[key]} target="_blank" rel="noreferrer" style={{ color: C.teal }}>Open ↗</a> : s[key]}
+                                            {value.startsWith("http") ? <a href={value} target="_blank" rel="noreferrer" style={{ color: C.teal }}>Open ↗</a> : value}
                                           </div>
                                         </div>
                                     )}
                                     </div>
-                                  </div>);
-
-                            })}
+                                  </div>
+                            )}
                               {addCredits.length > 0 &&
                             <div style={{ marginBottom: 14 }}>
                                   <div style={{ fontSize: 10, fontWeight: 700, color: C.pink, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>Additional Credits</div>
@@ -4360,6 +4387,7 @@ function OriginalsSection({ data, canEdit, onUpdate, period, ytApiKey, airtableC
                             }
                               {s.primary_bio_1 && <div style={{ marginBottom: 14 }}><div style={{ fontSize: 10, fontWeight: 700, color: C.pink, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>Artist Bio</div><div style={{ background: C.card, border: `1px solid ${C.hi2}`, borderRadius: 4, padding: "12px 14px", fontSize: 12, color: C.sec, lineHeight: 1.7 }}>{s.primary_bio_1}</div></div>}
                               {s.desc_short && <div style={{ marginBottom: 14 }}><div style={{ fontSize: 10, fontWeight: 700, color: C.pink, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>Short Description</div><div style={{ background: C.card, border: `1px solid ${C.hi2}`, borderRadius: 4, padding: "12px 14px", fontSize: 12, color: C.sec, lineHeight: 1.7 }}>{s.desc_short}</div></div>}
+                              {s.song_description && <div style={{ marginBottom: 14 }}><div style={{ fontSize: 10, fontWeight: 700, color: C.pink, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>Song Description</div><div style={{ background: C.card, border: `1px solid ${C.hi2}`, borderRadius: 4, padding: "12px 14px", fontSize: 12, color: C.sec, lineHeight: 1.7 }}>{s.song_description}</div></div>}
                               {s.desc_long && <div style={{ marginBottom: 14 }}><div style={{ fontSize: 10, fontWeight: 700, color: C.pink, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>Press Note</div><div style={{ background: C.card, border: `1px solid ${C.hi2}`, borderRadius: 4, padding: "12px 14px", fontSize: 12, color: C.sec, lineHeight: 1.7 }}>{s.desc_long}</div></div>}
                               {s.artwork_notes && <div style={{ marginBottom: 14 }}><div style={{ fontSize: 10, fontWeight: 700, color: C.pink, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>Artwork Notes</div><div style={{ background: C.card, border: `1px solid ${C.hi2}`, borderRadius: 4, padding: "12px 14px", fontSize: 12, color: C.sec, lineHeight: 1.7 }}>{s.artwork_notes}</div></div>}
                               {s.press_quote && <div style={{ marginBottom: 14 }}><div style={{ fontSize: 10, fontWeight: 700, color: C.pink, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>Press Quote</div><div style={{ background: "rgba(107,63,160,0.04)", border: "1px solid rgba(107,63,160,0.1)", borderRadius: 4, padding: "12px 14px", fontSize: 13, color: C.sec, lineHeight: 1.7, fontStyle: "italic" }}>"{s.press_quote}"</div></div>}
